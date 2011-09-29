@@ -1,0 +1,37 @@
+Simple::Redis is Perl 6 module for using Redis key-value store
+available from http://redis.io or from your favourite distribution
+too. It have many interesting features like hashes, lists, sets,
+transactions, commands queue, push/subscribe moda and replication.
+Redis use simple client-server protocol (set of text lines ended
+with "\r\n") what make it lightweight and efective as network cache
+server with addition of data persistence function.
+
+INSTALL
+
+Simple::Redis module do not have any special dependencies except
+Perl 6 environment. For installation (cloning) soucr code repository
+git VCS is required. Redis can be installed by:
+
+	apt-get install redis-server
+
+on Debian Linux. Simple::Redis module installation steps:
+
+	cd where/you/want/sources
+	git clone https://github.com/slunski/perl6-simple-redis.git
+
+then use Perl6 'ufo' tool to get Makefile and rest as usual:
+
+	ufo
+	make
+	make test
+
+TODO
+
+Simple::Redis is very young project at the moment and under heavy development.
+What still needs to be done can be found in TODO file.
+
+LICENSE
+
+Simple::Redis is distributed on as Perl 6 terms which are collected
+in The Artistic License 2.0. Full text can be found in LICENSE file.
+

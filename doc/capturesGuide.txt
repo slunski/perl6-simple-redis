@@ -1,0 +1,10 @@
+21:29 < TimToady> as for your binding, you can have a signature that binds the remaining capture in the middle, so you could do something like ($name, |$rest ($p1?, $p2?, $p3?, *@more))
+21:29 < TimToady> and it would always bind name, then $rest would be the capture of the rest of the arguments, of which the first three are also given names of p1, p2, p3
+21:29 < TimToady> at least, that's specced behavior
+21:30 < jnthn> Pretty sure that's how I implemented it too.
+21:31 < jnthn> nom: sub foo($name, |$rest ($p1?, $p2?, $p3?, *@more)) { say $name; say $p1 }; foo('bar', 1, 2)
+21:31 <+p6eval> nom a1032e: OUTPUT«bar␤1␤»
+21:31 < jnthn> nom: sub foo($name, |$rest ($p1?, $p2?, $p3?, *@more)) { say $name; say $rest }; foo('bar', 1, 2)
+21:31 <+p6eval> nom a1032e: OUTPUT«bar␤1 2␤»
+21:31 < TimToady> sugoi!
+

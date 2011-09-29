@@ -1,0 +1,13 @@
+* Write commands for:
+ - hashes
+ - lists
+ - sets
+ - pub/sub
+ - transactions
+ - configuration management
+ - debug
+* Write more tests
+* Add documentation
+* Testing
+* Profiling
+

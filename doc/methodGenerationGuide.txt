@@ -1,0 +1,6 @@
+
+From #perl6 @ freenode.net
+Say:
+rakudo: class Foo::Bar { BEGIN { for <bar baz waz> -> $name { Foo::Bar.HOW.add_method( Foo::Bar, $name, method () { "method for $name" }); } } }; say Foo::Bar.baz
+
+
