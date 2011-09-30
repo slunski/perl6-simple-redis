@@ -1,10 +1,15 @@
-Simple::Redis is Perl 6 module for using Redis key-value store
-available from http://redis.io or from your favourite distribution
-too. It have many interesting features like hashes, lists, sets,
-transactions, commands queue, push/subscribe moda and replication.
-Redis use simple client-server protocol (set of text lines ended
-with "\r\n") what make it lightweight and efective as network cache
-server with addition of data persistence function.
+Simple::Redis is pure Perl 6 module for using Redis key-value store
+(http://redis.io) Except storing key/value pairs it allow to store
+many interesting data structures like hashes, lists, sets. Additionally
+such features like transactions, commands queue, publish/subscribe moda
+and replication are all build in. This allow to classify Redis as
+"rich NoSQL" database. And last but not least - Redis performance is
+very high: it can execute even 100 000 updates/sec.
+
+Redis use simple client-server protocol - just set of text lines
+(UTF-8 aware) finsihed with "\r\n" - what make it lightweight and
+efective as cache for sessions, memoization, etc. - and that with
+data persistence (on disk) build in.
 
 INSTALL
 
@@ -19,7 +24,7 @@ on Debian Linux. Simple::Redis module installation steps:
 	cd where/you/want/sources
 	git clone https://github.com/slunski/perl6-simple-redis.git
 
-then use Perl6 'ufo' tool to get Makefile and rest as usual:
+then use Perl6 'ufo' tool to get Makefile:
 
 	ufo
 	make
@@ -27,8 +32,10 @@ then use Perl6 'ufo' tool to get Makefile and rest as usual:
 
 TODO
 
-Simple::Redis is very young project at the moment and under heavy development.
-What still needs to be done can be found in TODO file.
+Simple::Redis is very young project at the moment and still under
+heav development. All "normal" commands are implemented however
+testing is required. Missing commands are mainly responsible for remote
+Redis administration. List of things to be done can be found in TODO file.
 
 LICENSE
 

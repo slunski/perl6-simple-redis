@@ -1,7 +1,4 @@
 * Write commands for:
- - hashes
- - lists
- - sets
  - pub/sub
  - transactions
  - configuration management
