@@ -2,9 +2,10 @@
  - pub/sub
  - transactions
  - configuration management
- - debug
+ - debuging
 * Write more tests
 * Add documentation
+* Add examples
 * Testing
 * Profiling
 

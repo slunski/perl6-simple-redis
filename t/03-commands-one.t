@@ -14,30 +14,30 @@ my $re;
 
 $re = $redis.connect( $host, $port ) or die();
 
-say "SKIP: Auth";
 # Password protected server needed so skip
-#$re = $redis.auth( "secret" );
-is 1, 1, '1 ok';
+say "Authorization:";
+$re = $redis.auth( "nopass" );
+is $re, True, '1 ok';
 
-say "Decr";
+say "Decr:";
 $re = $redis.set( "a", "2" );
 $re = $redis.decr( "a" );
 is $re, 1, '2 ok';
 
-say "Echo";
+say "Echo:";
 $re = $redis.echo( "abc def");
 is $re, 'abc def', '3 ok';
 
-say "Exists";
+say "Exists:";
 $re = $redis.exists( "a" );
 is $re, 1, '4 ok';
 
-say "Incr";
+say "Incr:";
 $re = $redis.set( "b", "2" );
 $re = $redis.incr( "b" );
 is $re, 3, '5 ok';
 
-say "Select";
+say "Select:";
 $redis.set( "c", "3" );
 $redis.select( 1 );
 $redis.set( "c", "5" );
@@ -45,19 +45,19 @@ $redis.select( 0 );
 $re = $redis.get( "c" );
 is $re, 3, '6 ok';
 
-say "Strlen";
+say "Strlen:";
 $redis.set( "d", "abcdefghij" );
 $re = $redis.strlen( "d" );
 is $re, 10, '7 ok';
 
 
-say "Type";
+say "Type:";
 $redis.set( "e", "ace" );
 $re = $redis.type( "e" );
 is $re, 'string', '8 ok';
 
 
-say "Expiration";
+#say "Expiration";
 #$re = $redis.persist();
 #is $re, 'Bool::True', '6 ok';
 #$re = $redis.ttl( "a" );

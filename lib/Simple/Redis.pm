@@ -18,11 +18,94 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 			);
 		}
 
-		#for %redisCommandsMulti.keys -> $name {
+	our %redisCommandsMulti = { 
+		'APPEND' => (2,2),
+		'DEL' => (-1,2),
+		'DECRBY' => (2,2),
+		'EXPIRE' => (2,2),
+		'EXPIREAT' => (2,2),
+		'GETBIT' => (2,2),
+		'GETRANGE' => (3,4),
+		'GETSET' => (2,4), # FIXIT + test
+		'HDEL' => (-1,2),
+		'HEXISTS' => (2,2),
+		'HGET' => (2,4),
+		'HGETALL' => (1,5),
+		'HINCRBY' => (3,2),
+		'HKEYS' => (1,5),
+		'HLEN' => (1,1),
+		'HMGET' => (-1,5),
+		'HMSET' => (-1,1),
+		'HSET' => (3,2),
+		'HSETNX' => (3,2),
+		'HVALS' => (1,5),
+		'INCRBY' => (2,2),
+		'KEYS' => (1,5), # FIXIT + test
+		'LINDEX' => (2,4), # FIXIT + test
+		'LINSERT' => (4,2), # FIXIT + test
+		'LLEN' => (1,2), # FIXIT + test
+		'LPOP' => (1,4), # FIXIT + test
+		'LPUSH' => (-1,2), # FIXIT + test
+		'LPUSHX' => (2,2),
+		'LREM' => (3, 2),
+		'LRANGE' => (3, 5),
+		'LSET' => (3, 1),
+		'LTRIM' => (3, 1),
+		'MGET' => (-1,5), # FIXIT + test
+		'MOVE' => (2,2),
+		'MSET' => (-1,1), # FIXIT + test
+		'MSETNX' => (-1,2), # FIXIT + test
+		'RENAME' => (2,1),
+		'RENAMENX' => (2,2),
+		'RPOP' => (1,4),
+		'RPOPLPUSH' => (2,4),
+		'RPUSH' => (-1,4),
+		'RPUSHX' => (2,2),
+		'SADD' => (-1,2),
+		'SCARD' => (1,2),
+		'SDIFF' => (-1,5),
+		'SDIFFSTORE' => (-1,2),
+		'SETBIT' => (3,2),
+		'SETEX' => (3,1),
+		'SETNX' => (2,2),
+		'SETRANGE' => (3,1),
+		'SINTER' => (-1,5),
+		'SINTERSTORE' => (-1,2),
+		'SISMEMBER' => (2,1),
+		'SLEVEOF' => (-1,5),  # Should be implemented as separate command
+		'SLOWLOG' => (2,1),
+		'SMEMBERS' => (1,5),
+		'SMOVE' => (3,2),
+		'SORT' => (-1,5), # Should be implemented as separate command
+		'SPOP' => (1,4),
+		'SRANDMEMBER' => (1,4),
+		'SREM' => (-1,2),
+		'SUNION' => (-1,5),
+		'SUNIONSTORE' => (-1,2),
+		'WATCH' => (-1,1),
+		'ZADD' => (-1,2),
+		'ZCARD' => (1,2),
+		'ZCOUNT' => (3,2),
+		'ZINCRBY' => (3,4),
+		'ZINTERSTORE' => (-1,2),
+		'ZRANGE' => (-1,5),
+		'ZRANGEBYSCORE' => (-1,5),
+		'ZRANK' => (2,4), # Should be implemented as separate command
+		'ZREM' => (-1,2),
+		'ZREMRANGEBYRANK' => (3,2),
+		'ZREMRANGEBYSCORE' => (3,2),
+		'ZREVRANGE' => (-1,5),
+		'ZREVRANGEBYSCORE' => (-1,5),
+		'ZREVRANK' => (2,4), # Should be implemented as separate command
+		'ZSCORE' => (2,4),
+		'ZUNIONSTORE' => (-1,2) # Should be implemented as separate command
+	}
 		for <del decrby expire expireat getbit getrange getset hdel hget hset hexists lindex linsert lpop lpush lpushx lrange lrem lset ltrim mget setbit> -> $name {
+		#for %redisCommandsMulti.keys -> $name {
+			my $n = lc $name;
 			Simple::Redis.HOW.add_method(
-				Simple::Redis, $name.lc, method ( *@rest ) {
-					return self!__cmd_gen( $name, @rest )
+				Simple::Redis, $n, method ( *@rest ) {
+					return self!__cmd_gen( $n, @rest )
 				}
 			);
 		}
@@ -30,7 +113,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	#} # BEGIN end
 
 	has $!sock; # is rw;
-	has $!errormsg; # is rw;
+	has Str $!errormsg = ''; # is rw;
 
 	method connect( $host, $port ) {
 		$!sock = IO::Socket::INET.new( :$host, :$port );
@@ -185,99 +268,28 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	}
 
 	#has %!redisCommandsMulti = {
-	our %redisCommandsMulti = { 
-		'APPEND' => (2,2),
-		'DEL' => (-1,2),
-		'DECRBY' => (2,2),
-		'EXPIRE' => (2,2),
-		'EXPIREAT' => (2,2),
-		'GETBIT' => (2,2),
-		'GETRANGE' => (3,4),
-		'GETSET' => (2,4), # FIXIT + test
-		'HDEL' => (-1,2),
-		'HEXISTS' => (2,2),
-		'HGET' => (2,4),
-		'HGETALL' => (1,5),
-		'HINCRBY' => (3,2),
-		'HKEYS' => (1,5),
-		'HLEN' => (1,1),
-		'HMGET' => (-1,5),
-		'HMSET' => (-1,1),
-		'HSET' => (3,2),
-		'HSETNX' => (3,2),
-		'HVALS' => (1,5),
-		'INCRBY' => (2,2),
-		'KEYS' => (1,5), # FIXIT + test
-		'LINDEX' => (2,4), # FIXIT + test
-		'LINSERT' => (4,2), # FIXIT + test
-		'LLEN' => (1,2), # FIXIT + test
-		'LPOP' => (1,4), # FIXIT + test
-		'LPUSH' => (-1,2), # FIXIT + test
-		'LPUSHX' => (2,2),
-		'LREM' => (3, 2),
-		'LRANGE' => (3, 5),
-		'LSET' => (3, 1),
-		'LTRIM' => (3, 1),
-		'MGET' => (-1,5), # FIXIT + test
-		'MOVE' => (2,2),
-		'MSET' => (-1,1), # FIXIT + test
-		'MSETNX' => (-1,2), # FIXIT + test
-		'RENAME' => (2,1),
-		'RENAMENX' => (2,2),
-		'RPOP' => (1,4),
-		'RPOPLPUSH' => (2,4),
-		'RPUSH' => (-1,4),
-		'RPUSHX' => (2,2),
-		'SADD' => (-1,2),
-		'SCARD' => (1,2),
-		'SDIFF' => (-1,5),
-		'SDIFFSTORE' => (-1,2),
-		'SETBIT' => (3,2),
-		'SETEX' => (3,1),
-		'SETNX' => (2,2),
-		'SETRANGE' => (3,1),
-		'SINTER' => (-1,5),
-		'SINTERSTORE' => (-1,2),
-		'SISMEMBER' => (2,1),
-		'SLEVEOF' => (-1,5),  # Should be implemented as separate command
-		'SLOWLOG' => (2,1),
-		'SMEMBERS' => (1,5),
-		'SMOVE' => (3,2),
-		'SORT' => (-1,5), # Should be implemented as separate command
-		'SPOP' => (1,4),
-		'SRANDMEMBER' => (1,4),
-		'SREM' => (-1,2),
-		'SUNION' => (-1,5),
-		'SUNIONSTORE' => (-1,2),
-		'WATCH' => (-1,1),
-		'ZADD' => (-1,2),
-		'ZCARD' => (1,2),
-		'ZCOUNT' => (3,2),
-		'ZINCRBY' => (3,4),
-		'ZINTERSTORE' => (-1,2),
-		'ZRANGE' => (-1,5),
-		'ZRANGEBYSCORE' => (-1,5),
-		'ZRANK' => (2,4), # Should be implemented as separate command
-		'ZREM' => (-1,2),
-		'ZREMRANGEBYRANK' => (3,2),
-		'ZREMRANGEBYSCORE' => (3,2),
-		'ZREVRANGE' => (-1,5),
-		'ZREVRANGEBYSCORE' => (-1,5),
-		'ZREVRANK' => (2,4), # Should be implemented as separate command
-		'ZSCORE' => (2,4),
-		'ZUNIONSTORE' => (-1,2) # Should be implemented as separate command
-	}
 
 	method !__cmd_gen( Str $command!, *@params ) {
 		#my $syntax = %!redisCommandsMulti{ up $command };
-		my $syntax = %redisCommandsMulti{ $command };
-		return "Unknown command: $command" if ! $syntax;
-
-		my $n = @params.elems;
-		if ! $syntax[0] == $n {
-			$syntax[0] < $n ??  return "To much parameters" !!  return "To few parameters";
+		my $syntax = %redisCommandsMulti{ uc $command };
+		if ! $syntax {
+			$!errormsg = "-Unknown command: $command";
+			return False;
 		}
-		undefine( $!errormsg );
+		my $n = @params.elems;
+		if $syntax[0] != $n {
+			say "n|$n|";
+			if $syntax[0] == -1 {
+
+			} elsif $syntax[0] < $n {
+				$!errormsg = "-To much parameters";
+				return False
+			} else {
+				$!errormsg = "-To few parameters";
+				return False;
+			}
+		}
+		$!errormsg = '';
 		my $cmd;
 		if $syntax[0] == 0 {
 			$cmd = "$command\r\n";
@@ -290,29 +302,48 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 				my $plen = $p.bytes;
 				$cmd ~= "\$$plen\r\n$p\r\n";
 			}
-			
 			$!sock.send( $cmd ) or return False;
+
 			my $resp = $!sock.get() or return False;
+			say "re|$resp|er";
 			my $prefix = substr( $resp, 0, 1 );
 
 
+			my $partone;  my $len;  my $data;
 			given $prefix {
 				when '-' { $!errormsg =  $resp;  return False; }
-				when '+' { return True } # Tested above: not error so '+OK'
-				when 2|3 { return substr( $resp, 1, $resp.bytes ) } # Int or String
+				when '+' {
+					return True if $syntax[1] = 1;  # Tested above: not error so '+OK'
+					return substr( $resp, 1, $resp.bytes )  # String
+				}
+				when ':'  { return substr( $resp, 1, $resp.bytes ) } # Integer
+				when '$' {  # Bulk
+					$len = substr( $resp, 1, $resp.bytes );
+					$data = $!sock.get();
+					# With Perl6/Parrot buffering .getline do all work
+					#return substr( $data, 0, $len );
+					return $data;
+				}
+				when '*' {  # Multi-Bulk; '*NumMsg\r\n
+					my $count = substr( $resp, 1, $resp.bytes );
+					return False if $count == -1;  # Nil; Or return empty list ?
+					my @list;
+					loop (my $i=0; $i<$count; $i++) {
+						# With Perl6/Parrot buffering .getline do all work
+						#$r = $!sock.get();
+						#$len = substr( $resp, 1, $r.bytes );
+						#$b = $!sock.get();
+						#my $c = substr( $b, 0, $len );
+						#say "|$b|$c|";
+						#push @list, $b;
+						$partone = $!sock.get();
+						$data = $!sock.get();
+						push @list, $data;
+					}
+					return @list;
+				}
 				default { return False }
 			}
-
-			# if DB send '-ERR ...'
-			#if $prefix eq '-' {
-			#	$!errormsg =  $resp;
-			#	return False;
-			#}
-			#given $syntax[1] {
-			#	when 1 { return True } # Tested above: not error so '+OK'
-			#	when 2|3 { return substr( $resp, 1, $resp.bytes ) } # Int or String
-			#	default { return False }
-			#}
 		}
 	}
 
