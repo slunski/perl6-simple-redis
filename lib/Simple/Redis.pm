@@ -18,7 +18,9 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 			);
 		}
 
-	our %redisCommandsMulti = { 
+	#has %!redisCommandsMulti = {
+	#our %redisCommandsMulti = { 
+	my %redisCommandsMulti = { 
 		'APPEND' => (2,2),
 		'DEL' => (-1,2),
 		'DECRBY' => (2,2),
@@ -27,7 +29,8 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		'GETBIT' => (2,2),
 		'GETRANGE' => (3,4),
 		'GETSET' => (2,4), # FIXIT + test
-		'HDEL' => (-1,2),
+		#'HDEL' => (-1,2), # in ver. 2.4+
+		'HDEL' => (2,2),
 		'HEXISTS' => (2,2),
 		'HGET' => (2,4),
 		'HGETALL' => (1,5),
@@ -100,8 +103,13 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		'ZSCORE' => (2,4),
 		'ZUNIONSTORE' => (-1,2) # Should be implemented as separate command
 	}
-		for <del decrby expire expireat getbit getrange getset hdel hget hset hexists lindex linsert lpop lpush lpushx lrange lrem lset ltrim mget setbit> -> $name {
-		#for %redisCommandsMulti.keys -> $name {
+
+	
+	#my @a = %!redisCommandsMulti.keys; 
+
+		#for <del decrby expire expireat getbit getrange getset hdel hget hset hexists lindex linsert lpop lpush lpushx lrange lrem lset ltrim mget setbit> -> $name {
+		#for %!redisCommandsMulti.keys -> $name {
+		for %redisCommandsMulti.keys -> $name {
 			my $n = lc $name;
 			Simple::Redis.HOW.add_method(
 				Simple::Redis, $n, method ( *@rest ) {
@@ -270,7 +278,6 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	#has %!redisCommandsMulti = {
 
 	method !__cmd_gen( Str $command!, *@params ) {
-		#my $syntax = %!redisCommandsMulti{ up $command };
 		my $syntax = %redisCommandsMulti{ uc $command };
 		if ! $syntax {
 			$!errormsg = "-Unknown command: $command";
@@ -278,7 +285,6 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		}
 		my $n = @params.elems;
 		if $syntax[0] != $n {
-			say "n|$n|";
 			if $syntax[0] == -1 {
 
 			} elsif $syntax[0] < $n {
@@ -305,39 +311,40 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 			$!sock.send( $cmd ) or return False;
 
 			my $resp = $!sock.get() or return False;
-			say "re|$resp|er";
 			my $prefix = substr( $resp, 0, 1 );
 
-
-			my $partone;  my $len;  my $data;
+			#my $debug = '';
+			my $len;  my $data;
 			given $prefix {
 				when '-' { $!errormsg =  $resp;  return False; }
 				when '+' {
-					return True if $syntax[1] = 1;  # Tested above: not error so '+OK'
+					return True if $syntax[1] == 1;  # Tested above: not error so '+OK'
 					return substr( $resp, 1, $resp.bytes )  # String
 				}
-				when ':'  { return substr( $resp, 1, $resp.bytes ) } # Integer
-				when '$' {  # Bulk
+				when ':'  {
+					return substr( $resp, 1, $resp.bytes ) } # Integer
+				when '$' {  # Bulk; $MsgLen\r\n
 					$len = substr( $resp, 1, $resp.bytes );
+					return False if $len == -1;  # Nil
 					$data = $!sock.get();
-					# With Perl6/Parrot buffering .getline do all work
-					#return substr( $data, 0, $len );
-					return $data;
+					# With Perl6/Parrot buffering .getline do all work: chomp
+					return substr( $data, 0, $len );
+					#return $data;
 				}
-				when '*' {  # Multi-Bulk; '*NumMsg\r\n
+				when '*' {  # Multi-Bulk; '*NumMsg\r\n...
 					my $count = substr( $resp, 1, $resp.bytes );
-					return False if $count == -1;  # Nil; Or return empty list ?
+					return False if $count == -1;  # Nil
 					my @list;
+					my $partone;
+					my $val;
 					loop (my $i=0; $i<$count; $i++) {
-						# With Perl6/Parrot buffering .getline do all work
-						#$r = $!sock.get();
-						#$len = substr( $resp, 1, $r.bytes );
-						#$b = $!sock.get();
-						#my $c = substr( $b, 0, $len );
-						#say "|$b|$c|";
-						#push @list, $b;
 						$partone = $!sock.get();
-						$data = $!sock.get();
+						$len = substr( $partone, 1, $resp.bytes );
+						next if $len == -1;  # Nil
+						$data ~= $!sock.get();
+						while $data.bytes < $len {
+							$data ~= "\r\n" ~ $!sock.get();
+						}
 						push @list, $data;
 					}
 					return @list;
