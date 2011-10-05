@@ -22,6 +22,9 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	#our %redisCommandsMulti = { 
 	my %redisCommandsMulti = { 
 		'APPEND' => (2,2),
+		'BLPOP' => (-1,5),
+		'BRPOP' => (-1,5),
+		'BRPOPLPUSH' => (3,4),  # if timeout then (3,5)
 		'DEL' => (-1,2),
 		'DECRBY' => (2,2),
 		'EXPIRE' => (2,2),
@@ -334,15 +337,16 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 				when '*' {  # Multi-Bulk; '*NumMsg\r\n...
 					my $count = substr( $resp, 1, $resp.bytes );
 					return False if $count == -1;  # Nil
-					my @list;
+					my @list = ();
 					my $partone;
 					my $val;
 					loop (my $i=0; $i<$count; $i++) {
 						$partone = $!sock.get();
 						$len = substr( $partone, 1, $resp.bytes );
 						next if $len == -1;  # Nil
-						$data ~= $!sock.get();
+						$data = $!sock.get();
 						while $data.bytes < $len {
+							say "DEBUG: ~~~~~~~~~~";
 							$data ~= "\r\n" ~ $!sock.get();
 						}
 						push @list, $data;
