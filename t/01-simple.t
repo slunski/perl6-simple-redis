@@ -46,8 +46,9 @@ say "Flush...";
 $redis.flushdb();
 
 $re = $redis.get( "t1" );
+
 say "Empty ?: |$re|";
-is $re, '', '8 ok';
+is $re, Any, '8 ok';
 
 $re = $redis.quit();
 

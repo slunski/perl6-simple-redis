@@ -182,7 +182,8 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		if $num < 0 {
 			# -1 - "No such key", return empty
 			#return Nil;
-			return Any;
+			#return Any;
+			return ;
 		} else {
 			my $data = $!sock.get();
 			chomp $data;
@@ -310,11 +311,13 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 					return substr( $resp, 1, $resp.bytes ) } # Integer
 				when '$' {  # Bulk; $MsgLen\r\n
 					$len = substr( $resp, 1, $resp.bytes );
-					return False if $len == -1;  # Nil
+					return if $len == -1;  # Nil
 					$data = $!sock.get();
-					# With Perl6/Parrot buffering .getline do all work: chomp
-					return substr( $data, 0, $len );
-					#return $data;
+					while $data.bytes < $len {
+						$data ~= "\r\n" ~ $!sock.get();
+					}
+					#return substr( $data, 0, $len );
+					return $data;
 				}
 				when '*' {  # Multi-Bulk; '*NumMsg\r\n...
 					my $count = substr( $resp, 1, $resp.bytes );

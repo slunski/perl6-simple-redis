@@ -6,7 +6,7 @@ use Simple::Redis;
 my $host = '127.0.0.1';
 my $port = '6379';
 
-plan 21;
+plan 22;
 
 my $e;
 my $r = Simple::Redis.new;
@@ -25,7 +25,7 @@ is $e, 0, '2 ok';
 $e = $r.hget( "hsh", "a" );
 is $e, 2, '3 ok';
 $e = $r.hget( "hsh", "b" );
-is $e, Bool::False, '4 ok';
+is $e, Any, '4 ok';
 
 $e = $r.hmset( "hsh" );
 is $e, Bool::False, '5 ok';
@@ -42,7 +42,7 @@ is $e, 4, '9 ok';
 $e = $r.hdel( "hsh", "d" );
 is $e, 1, '10 ok';
 $e = $r.hget( "hsh", "d" );
-is $e, Bool::False, '11 ok';
+is $e, Any, '11 ok';
 
 $e = $r.hexists( "hsh", "a" );
 is $e, 1, '12 ok';

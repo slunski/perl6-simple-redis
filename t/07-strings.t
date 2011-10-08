@@ -9,7 +9,7 @@ $r.connect( $host, $port );
 
 my $e;
 my @l;
-plan 5;
+plan 18;
 
 $r.flushdb();
 
@@ -25,42 +25,50 @@ is $e, 'bcd', '2 ok';
 $e = $r.getset( "a", "a" );
 is $e, 'abcde', '3 ok';
 
+my $b = "aaa\r\nbbb\r\n";
+$r.set( "b", $b );
+$e = $r.getset( "b", $b );
+is $e, $b, '4 ok';
+
+$r.flushdb();
 $e = $r.mset( "a", "a", "b", "b", "c", "c" );
-is $e, Bool::True, '4 ok';
+is $e, Bool::True, '5 ok';
 $e = $r.get( "a" );
-is $e, "a", '5 ok';
+is $e, "a", '6 ok';
 $e = $r.get( "b" );
-is $e, "b", '6 ok';
+is $e, "b", '7 ok';
 $e = $r.get( "c" );
-is $e, "c", '7 ok';
+is $e, "c", '8 ok';
 
 @l = $r.mget( "a", "b" );
-is @l[0], "a", '8 ok';
-is @l[1], "b", '9 ok';
+is @l[0], "a", '9 ok';
+is @l[1], "b", '10 ok';
 
 $e = $r.msetnx( "a", "A", "b", "B", "C", "c" );
-is $e, 1, '10 ok';
+is $e, 0, '11 ok';
 $e = $r.get( "C" );
-is $e, 1, '11 ok';
+$e = 0 if !$e;
+is $e, 0, '12 ok';
 
-exit;
+$e = $r.setex( "a", 2, "a" );
+is $e, Bool::True, '13 ok';
+sleep(3);
+$e = $r.get( "a" );
+$e = False if !$e;
+is $e, Bool::False, '14 ok';
 
-$e = $r.setex( );
-is $e, , '3 ok';
+$e = $r.setnx( "b", "b" );
+is $e, 0, '15 ok';
+$e = $r.setnx( "d", "d" );
+is $e, 1, '16 ok';
 
-$e = $r.setnx( );
-is $e, , '3 ok';
-
-$e = $r.setrange( );
-is $e, , '3 ok';
-
-
-
-
-
-
-
-$r.quit();
+$e = $r.set( "e", "foo baz baz" );
+$e = $r.setrange( "e", 4, "bar" );
+is $e, 11, '17 ok';
+$e = $r.get( "e" );
+is $e, "foo bar baz", '18 ok';
 
 done;
+
+$r.quit();
 
