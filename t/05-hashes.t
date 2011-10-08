@@ -83,11 +83,17 @@ $e = $r.hset( "hsh", "c", 3 );
 @l = $r.hvals( "hsh" );
 is @l.elems, 3, '20 ok';
 
-$r.flushdb();
+my @h;
 my $a = "abc\r\ndef";
-$r.hset( "hsh", "e", $a );
-my @h = $r.hmget( "hsh", "e" );
+$r.hset( "hsh", "d", $a );
+@h = $r.hmget( "hsh", "d" );
 is @h[0], $a, '21 ok';
+
+my $b = "abc\r\ndef\r\n";
+$r.hset( "hsh", "e", $b );
+@h = $r.hmget( "hsh", "e" );
+is @h[0], $b, '22 ok';
+
 
 $e = $r.quit();
 

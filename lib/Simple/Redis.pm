@@ -156,24 +156,6 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		return $!errormsg;
 	}
 
-#	method !__parse_response() {
-#		# Not used yet
-#		my $data = $!sock.get();
-#		return False if ! $data;
-#
-#		my $c = substr( $data, 0, 1 );
-#		#my $rest = substr( $data, 1, $data.chars );
-#		given $c {
-#			when '-' { return (False , $data) }
-#			when '+', ':' {
-#				my $rest = substr( $data, 1, $data.chars );
-#				return (True, $rest) } # String or Int
-#			when '$' { return (True, $data) } # Bulk testing
-#			when '*' { return (True, $data) } # Multi-Bulk testing
-#			default { return (False, $data) }
-#		}
-#	}
-
 	method set( $key, $value ) {
 		my $cmd = "*3\r\n\$3\r\nSET\r\n";
 		$cmd ~= "\$" ~ $key.bytes ~ "\r\n" ~ $key ~ "\r\n\$" ~ $value.bytes ~ "\r\n" ~ $value ~ "\r\n";
@@ -200,7 +182,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		if $num < 0 {
 			# -1 - "No such key", return empty
 			#return Nil;
-			return '';
+			return Any;
 		} else {
 			my $data = $!sock.get();
 			chomp $data;
@@ -342,11 +324,10 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 					my $val;
 					loop (my $i=0; $i<$count; $i++) {
 						$partone = $!sock.get();
-						$len = substr( $partone, 1, $resp.bytes );
+						$len = substr( $partone, 1, $partone.bytes );
 						next if $len == -1;  # Nil
 						$data = $!sock.get();
 						while $data.bytes < $len {
-							say "DEBUG: ~~~~~~~~~~";
 							$data ~= "\r\n" ~ $!sock.get();
 						}
 						push @list, $data;
