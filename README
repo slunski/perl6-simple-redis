@@ -1,15 +1,17 @@
 Simple::Redis is pure Perl 6 module for using Redis key-value store
-(http://redis.io) Except storing key/value pairs it allow to store
-many interesting data structures like hashes, lists and sets.
-Additionally such features like transactions, commands queue,
-publish/subscribe moda and replication are all build in. This allow
+(http://redis.io). Except key/value pairs Redis allows to use
+many interesting data structures like hashes, lists, sets and sorted
+sets. Additionally features like transactions, commands queue,
+publish/subscribe mode and replication are all build in. This allow
 to classify Redis as "rich NoSQL" database. And last but not least -
-Redis performance is very high: it can execute even 100k updates/sec.
+Redis performance is very high: it can execute 100k rw ops/sec.
 
 Redis use simple client-server protocol - request/response is just set
 of text lines (UTF-8 aware) finsihed with "\r\n". This make Redis
-lightweight and efective as cache for sessions, memoization, etc. - and
-that all with data persistence (on disk) build in.
+lightweight and efective as cache for sessions, memoization, etc - and
+that all with data persistence (on disk) build in. Becouse of such protocol
+real work is done in 'server' part so using Redis on busy WWW frontends is
+Good Thing - both for frontends and DB backends.
 
 
 INSTALL
@@ -20,7 +22,10 @@ git VCS is required. Redis itself can be installed by:
 
 	apt-get install redis-server
 
-on Debian boxes. Module installation steps are:
+on Debian boxes. Actually (2011/10) Redis v2.4 is in Debian 'experimental'
+repository.
+
+Simple::Redis package installation steps are:
 
 	cd where/you/want/sources
 	git clone https://github.com/slunski/perl6-simple-redis.git
@@ -30,15 +35,15 @@ then use Perl6 'ufo' tool to get Makefile:
 	ufo
 	make
 	make test
+	# TODO #make install  # use 'panda' ?
 
 
 TODO
 
-Simple::Redis is very young project and still under heav development. At
-the moment all commands for normal - db-like-usage - are implemented,
-however more testing is required. Missing commands are mainly responsible
-for remote Redis administration. List of things to be done can be found in
-TODO file.
+Simple::Redis is young project and still under heav development. At
+the moment all commands for normal - db-like-usage - are implemented.
+Missing commands are mainly responsible for remote Redis administration.
+List of things still missing can be found in TODO file.
 
 
 LICENSE

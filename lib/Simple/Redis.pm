@@ -2,7 +2,7 @@ use v6;
 
 class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	#BEGIN {
-		for <bgrewriteaof bgsave discard flushall flushdb ping save unwatch dbsize lastsave> -> $name {
+		for <bgrewriteaof bgsave discard flushall flushdb ping save unwatch dbsize lastsave> -> Str $name {
 			Simple::Redis.HOW.add_method(
 				Simple::Redis, $name, method () {
 					return self!__cmd_zeroone( $name )
@@ -10,7 +10,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 			);
 		}
 		
-		for <auth decr exists incr persist select strlen ttl type> -> $name {
+		for <auth decr exists incr persist select strlen ttl type> -> Str $name {
 			Simple::Redis.HOW.add_method(
 				Simple::Redis, $name, method ( $param ) {
 					return self!__cmd_zeroone( $name, $param )
@@ -113,7 +113,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		#for <del decrby expire expireat getbit getrange getset hdel hget hset hexists lindex linsert lpop lpush lpushx lrange lrem lset ltrim mget setbit> -> $name {
 		#for %!redisCommandsMulti.keys -> $name {
 		for %redisCommandsMulti.keys -> $name {
-			my $n = lc $name;
+			my Str $n = lc $name;
 			Simple::Redis.HOW.add_method(
 				Simple::Redis, $n, method ( *@rest ) {
 					return self!__cmd_gen( $n, @rest )
@@ -134,8 +134,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 
 	method quit() {
 		$!sock.send( "QUIT\r\n" ) or return False;
-		#my $resp = $!sock.recv();
-		my $resp = $!sock.get();
+		my Str $resp = $!sock.get();
 		$!sock.close();
 		return True if $resp eq "+OK";
 		return False;
@@ -143,8 +142,8 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 
 	method info {
 		$!sock.send( "INFO\r\n" ) or return False;
-		my $info;
-		my $l;
+		my Str $info;
+		my Str $l;
 		# Or use .recv and get everything in one call
 		while $l = $!sock.get()  {
 			$info ~= $l ~ "\n";
@@ -157,21 +156,21 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	}
 
 	method set( $key, $value ) {
-		my $cmd = "*3\r\n\$3\r\nSET\r\n";
+		my Str $cmd = "*3\r\n\$3\r\nSET\r\n";
 		$cmd ~= "\$" ~ $key.bytes ~ "\r\n" ~ $key ~ "\r\n\$" ~ $value.bytes ~ "\r\n" ~ $value ~ "\r\n";
 		$!sock.send( $cmd ) or return False;
-		my $resp = $!sock.get();
+		my Str $resp = $!sock.get();
 		return True if $resp ~~ '+OK';
 		return False;
 	}
 	
-	method get( $key ) {
-		my $cmd = "*2\r\n\$3\r\nGET\r\n";
+	method get( Str $key ) {
+		my Str $cmd = "*2\r\n\$3\r\nGET\r\n";
 		$cmd ~= "\$" ~ $key.chars ~ "\r\n" ~ $key ~ "\r\n";
 		$!sock.send( $cmd ) or return False;
-		my $resp = $!sock.get();
+		my Str $resp = $!sock.get();
 
-		my $pfx = substr( $resp, 0, 1 );
+		my Str $pfx = substr( $resp, 0, 1 );
 		if $pfx eq '-' {  # Protocol error
 			$!errormsg = $resp;
 			return False;
@@ -181,8 +180,6 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		my $num = substr( $resp, 1, $resp.chars );
 		if $num < 0 {
 			# -1 - "No such key", return empty
-			#return Nil;
-			#return Any;
 			return ;
 		} else {
 			my $data = $!sock.get();
@@ -192,11 +189,10 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	}
 
 	method echo( $str! ) {
-		my $cmd = "*2\r\n\$4\r\necho\r\n\$" ~ $str.bytes ~ "\r\n$str\r\n";
-
+		my Str $cmd = "*2\r\n\$4\r\necho\r\n\$" ~ $str.bytes ~ "\r\n$str\r\n";
 		$!sock.send( $cmd ) or return False;
 		
-		my $resp = $!sock.get() or return False;
+		my Str $resp = $!sock.get() or return False;
 		#my $len = substr( $resp, 1, $resp.bytes );
 		#$resp = $!sock.recv( $len.Int );
 		$resp = $!sock.get() or return False;

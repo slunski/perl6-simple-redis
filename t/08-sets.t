@@ -9,7 +9,7 @@ my $port = '6379';
 my $r = Simple::Redis.new;
 $r.connect( $host, $port );
 
-plan 19;
+plan 17;
 
 my $e;
 
@@ -61,7 +61,7 @@ $e = $r.sismember( "let2", "a" );
 is $e, 1, '16 ok';
 
 $e = $r.spop( "let" );
-is $e.defined, True, '16 ok';
+is $e.defined, True, '17 ok';
 
 
 exit;
