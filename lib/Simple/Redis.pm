@@ -10,13 +10,13 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		#	);
 		#}
 		
-		for <auth decr exists incr persist select strlen ttl type> -> Str $name {
-			Simple::Redis.HOW.add_method(
-				Simple::Redis, $name, method ( $param ) {
-					return self!__cmd_zeroone( $name, $param )
-				}
-			);
-		}
+		#for <auth decr exists incr persist select strlen ttl type> -> Str $name {
+		#	Simple::Redis.HOW.add_method(
+		#		Simple::Redis, $name, method ( $param ) {
+		#			return self!__cmd_zeroone( $name, $param )
+		#		}
+		#	);
+		#}
 
 	#has %!redisCommandsMulti = {
 	#our %redisCommandsMulti = { 
@@ -31,6 +31,15 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		'UNWATCH' => (0,1),
 		'DBSIZE' => (0,2),
 		'LASTSAVE' => (0,2),
+		'AUTH' => (1,1), # FIXIT + test
+		'SELECT' => (1,1),
+		'DECR' => (1,2),
+		'EXISTS' => (1,2),
+		'INCR' => (1,2),
+		'PERSIST' => (1,2),
+		'STRLEN' => (1,2),
+		'TTL' => (1,2),
+		'TYPE' => (1,3),
 		'APPEND' => (2,2),
 		'BLPOP' => (-1,5),
 		'BRPOP' => (-1,5),
@@ -211,61 +220,61 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 
 	# Syntax: 'commandName' => (paramsNum, responseType)
 	# responseType: 1: status only; 2: Int; 3: Str; 4: Bulk; 5: Multi-Bulk
-	has %!redisCommands = {
+	#has %!redisCommands = {
 	# Commands with zero params
-		'BGREWRITEAOF' => (0,1),
-		'BGSAVE' => (0,1),
-		'DISCARD' => (0,1),
-		'FLUSHDB' => (0,1),
-		'FLUSHALL' => (0,1),
-		'MULTI' => (0,1), # FIXIT + test 
-		'PING' => (0,1),
-		'RANDOMKEY' => (0,4), # FIXIT + test 
-		'SAVE' => (0,1),
-		'UNWATCH' => (0,1),
-		'DBSIZE' => (0,2),
-		'LASTSAVE' => (0,2),
+		#'BGREWRITEAOF' => (0,1),
+		#'BGSAVE' => (0,1),
+		#'DISCARD' => (0,1),
+		#'FLUSHDB' => (0,1),
+		#'FLUSHALL' => (0,1),
+		#'MULTI' => (0,1), # FIXIT + test 
+		#'PING' => (0,1),
+		#'RANDOMKEY' => (0,4), # FIXIT + test 
+		#'SAVE' => (0,1),
+		#'UNWATCH' => (0,1),
+		#'DBSIZE' => (0,2),
+		#'LASTSAVE' => (0,2),
 	# Commands with one param
-		'AUTH' => (1,1), # FIXIT + test
-		'SELECT' => (1,1),
-		'DECR' => (1,2),
-		'EXISTS' => (1,2),
-		'INCR' => (1,2),
-		'PERSIST' => (1,2),
-		'STRLEN' => (1,2),
-		'TTL' => (1,2),
-		'TYPE' => (1,3)
-	}
+		#'AUTH' => (1,1), # FIXIT + test
+		#'SELECT' => (1,1),
+		#'DECR' => (1,2),
+		#'EXISTS' => (1,2),
+		#'INCR' => (1,2),
+		#'PERSIST' => (1,2),
+		#'STRLEN' => (1,2),
+		#'TTL' => (1,2),
+		#'TYPE' => (1,3)
+	#}
 
 
 	# Commands with one and two parameter
-	method !__cmd_zeroone( Str $command!, $param? ) {
-		my $syntax = %!redisCommands{ uc $command };
-		return "Unknown command: $command" if ! $syntax;
-
-		my $cmd;
-		if $syntax[0] == 0 {
-			$cmd = "$command\r\n";
-		} else {
-			#$syntax = %!redisCommands{ uc $command };
-			my $clen = $command.bytes;
-			my $plen = $param.bytes;
-			$cmd = "*2\r\n\$$clen\r\n$command\r\n\$$plen\r\n$param\r\n";
-		}
-
-		$!sock.send( $cmd ) or return False;
-		my $resp = $!sock.get() or return False;
-
-		my $prefix = substr( $resp, 0, 1 );
-		return False if $prefix eq '-'; # DB send '-ERR ...'
-		#say "C1|$resp|C1";
-
-		given $syntax[1] {
-			when 1 { return True } # Tested above: not error so '+OK'
-			when 2|3 { return substr( $resp, 1, $resp.bytes ) } # Int or String
-			default { return False }
-		}
-	}
+	#method !__cmd_zeroone( Str $command!, $param? ) {
+	#	my $syntax = %!redisCommands{ uc $command };
+	#	return "Unknown command: $command" if ! $syntax;
+	#
+	#	my $cmd;
+	#	if $syntax[0] == 0 {
+	#		$cmd = "$command\r\n";
+	#	} else {
+	#		#$syntax = %!redisCommands{ uc $command };
+	#		my $clen = $command.bytes;
+	#		my $plen = $param.bytes;
+	#		$cmd = "*2\r\n\$$clen\r\n$command\r\n\$$plen\r\n$param\r\n";
+	#	}
+	#
+	#	$!sock.send( $cmd ) or return False;
+	#	my $resp = $!sock.get() or return False;
+	#
+	#	my $prefix = substr( $resp, 0, 1 );
+	#	return False if $prefix eq '-'; # DB send '-ERR ...'
+	#	#say "C1|$resp|C1";
+	#
+	#	given $syntax[1] {
+	#		when 1 { return True } # Tested above: not error so '+OK'
+	#		when 2|3 { return substr( $resp, 1, $resp.bytes ) } # Int or String
+	#		default { return False }
+	#	}
+	#}
 
 	#has %!redisCommandsMulti = {
 
