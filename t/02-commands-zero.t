@@ -12,6 +12,7 @@ $re = $redis.connect( $host, $port );
 
 my $re;
 
+$re = $redis.flushdb();
 $re = $redis.set( "t1", "a" );
 $re = $redis.set( "t2", "b" );
 $re = $redis.set( "t3", "c" );

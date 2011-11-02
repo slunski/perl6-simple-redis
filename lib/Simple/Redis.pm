@@ -2,13 +2,13 @@ use v6;
 
 class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	#BEGIN {
-		for <bgrewriteaof bgsave discard flushall flushdb ping save unwatch dbsize lastsave> -> Str $name {
-			Simple::Redis.HOW.add_method(
-				Simple::Redis, $name, method () {
-					return self!__cmd_zeroone( $name )
-				}
-			);
-		}
+		#for <bgrewriteaof bgsave discard flushall flushdb ping save unwatch dbsize lastsave> -> Str $name {
+		#	Simple::Redis.HOW.add_method(
+		#		Simple::Redis, $name, method () {
+		#			return self!__cmd_zeroone( $name )
+		#		}
+		#	);
+		#}
 		
 		for <auth decr exists incr persist select strlen ttl type> -> Str $name {
 			Simple::Redis.HOW.add_method(
@@ -21,6 +21,16 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	#has %!redisCommandsMulti = {
 	#our %redisCommandsMulti = { 
 	my %redisCommandsMulti = { 
+		'BGREWRITEAOF' => (0,1),
+		'BGSAVE' => (0,1),
+		'DISCARD' => (0,1),
+		'FLUSHALL' => (0,1),
+		'FLUSHDB' => (0,1),
+		'PING' => (0,1),
+		'SAVE' => (0,1),
+		'UNWATCH' => (0,1),
+		'DBSIZE' => (0,2),
+		'LASTSAVE' => (0,2),
 		'APPEND' => (2,2),
 		'BLPOP' => (-1,5),
 		'BRPOP' => (-1,5),
@@ -116,7 +126,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 			my Str $n = lc $name;
 			Simple::Redis.HOW.add_method(
 				Simple::Redis, $n, method ( *@rest ) {
-					return self!__cmd_gen( $n, @rest )
+					return self!__cmd_gen( $name, @rest )
 				}
 			);
 		}
@@ -260,7 +270,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	#has %!redisCommandsMulti = {
 
 	method !__cmd_gen( Str $command!, *@params ) {
-		my $syntax = %redisCommandsMulti{ uc $command };
+		my $syntax = %redisCommandsMulti{ $command };
 		if ! $syntax {
 			$!errormsg = "-Unknown command: $command";
 			return False;
@@ -290,51 +300,52 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 				my $plen = $p.bytes;
 				$cmd ~= "\$$plen\r\n$p\r\n";
 			}
-			$!sock.send( $cmd ) or return False;
+		}
 
-			my $resp = $!sock.get() or return False;
-			my $prefix = substr( $resp, 0, 1 );
+		$!sock.send( $cmd ) or return False;
 
-			#my $debug = '';
-			my $len;  my $data;
-			given $prefix {
-				when '-' { $!errormsg =  $resp;  return False; }
-				when '+' {
-					return True if $syntax[1] == 1;  # Tested above: not error so '+OK'
-					return substr( $resp, 1, $resp.bytes )  # String
+		my $resp = $!sock.get() or return False;
+		my $prefix = substr( $resp, 0, 1 );
+
+		#my $debug = '';
+		my $len;  my $data;
+		given $prefix {
+			when '-' { $!errormsg =  $resp;  return False; }
+			when '+' {
+				return True if $syntax[1] == 1;  # '+OK' only so just True
+				return substr( $resp, 1, $resp.bytes )  # String
+			}
+			when ':'  {
+				return substr( $resp, 1, $resp.bytes ) } # Integer
+			when '$' {  # Bulk; $MsgLen\r\n
+				$len = substr( $resp, 1, $resp.bytes );
+				return if $len == -1;  # Nil
+				$data = $!sock.get();
+				while $data.bytes < $len {
+					$data ~= "\r\n" ~ $!sock.get();
 				}
-				when ':'  {
-					return substr( $resp, 1, $resp.bytes ) } # Integer
-				when '$' {  # Bulk; $MsgLen\r\n
-					$len = substr( $resp, 1, $resp.bytes );
-					return if $len == -1;  # Nil
+				#return substr( $data, 0, $len );
+				return $data;
+			}
+			when '*' {  # Multi-Bulk; '*NumMsg\r\n...
+				my $count = substr( $resp, 1, $resp.bytes );
+				return False if $count == -1;  # Nil
+				my @list = ();
+				my $partone;
+				my $val;
+				loop (my $i=0; $i<$count; $i++) {
+					$partone = $!sock.get();
+					$len = substr( $partone, 1, $partone.bytes );
+					next if $len == -1;  # Nil
 					$data = $!sock.get();
 					while $data.bytes < $len {
 						$data ~= "\r\n" ~ $!sock.get();
 					}
-					#return substr( $data, 0, $len );
-					return $data;
+					push @list, $data;
 				}
-				when '*' {  # Multi-Bulk; '*NumMsg\r\n...
-					my $count = substr( $resp, 1, $resp.bytes );
-					return False if $count == -1;  # Nil
-					my @list = ();
-					my $partone;
-					my $val;
-					loop (my $i=0; $i<$count; $i++) {
-						$partone = $!sock.get();
-						$len = substr( $partone, 1, $partone.bytes );
-						next if $len == -1;  # Nil
-						$data = $!sock.get();
-						while $data.bytes < $len {
-							$data ~= "\r\n" ~ $!sock.get();
-						}
-						push @list, $data;
-					}
-					return @list;
-				}
-				default { return False }
+				return @list;
 			}
+			default { return False }
 		}
 	}
 
