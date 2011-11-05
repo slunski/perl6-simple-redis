@@ -4,7 +4,10 @@
  - configuration management
  - debuging
 * Testing
+* Extract command which needs special threatment (if needed)
 * Documentation
 * Examples
 * Profiling
 * Non-blocking API ?
+* LHF: lc command names in command hash...
+

@@ -1,26 +1,20 @@
+#module Simple::Redis {
+
 use v6;
 
 class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
-	#BEGIN {
-		#for <bgrewriteaof bgsave discard flushall flushdb ping save unwatch dbsize lastsave> -> Str $name {
-		#	Simple::Redis.HOW.add_method(
-		#		Simple::Redis, $name, method () {
-		#			return self!__cmd_zeroone( $name )
-		#		}
-		#	);
-		#}
-		
-		#for <auth decr exists incr persist select strlen ttl type> -> Str $name {
-		#	Simple::Redis.HOW.add_method(
-		#		Simple::Redis, $name, method ( $param ) {
-		#			return self!__cmd_zeroone( $name, $param )
-		#		}
-		#	);
-		#}
 
-	#has %!redisCommandsMulti = {
-	#our %redisCommandsMulti = { 
-	my %redisCommandsMulti = { 
+	# BEGIN {
+
+	# Syntax:
+	# 'commandName' => (paramsNum, responseType)
+	# paramsNum: -1: vararg; rest: num of params
+	# responseType: 1: status only; 2: Int; 3: Str; 4: Bulk; 5: Multi-Bulk
+
+	# const it should be...
+	#our %redisCommands = { 
+	#has %!redisCommands = {
+	my %redisCommands = { 
 		'BGREWRITEAOF' => (0,1),
 		'BGSAVE' => (0,1),
 		'DISCARD' => (0,1),
@@ -31,6 +25,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		'UNWATCH' => (0,1),
 		'DBSIZE' => (0,2),
 		'LASTSAVE' => (0,2),
+		'GET' => (1,4),
 		'AUTH' => (1,1), # FIXIT + test
 		'SELECT' => (1,1),
 		'DECR' => (1,2),
@@ -126,19 +121,15 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		'ZUNIONSTORE' => (-1,2) # Should be implemented as separate command
 	}
 
-	
-	#my @a = %!redisCommandsMulti.keys; 
-
-		#for <del decrby expire expireat getbit getrange getset hdel hget hset hexists lindex linsert lpop lpush lpushx lrange lrem lset ltrim mget setbit> -> $name {
-		#for %!redisCommandsMulti.keys -> $name {
-		for %redisCommandsMulti.keys -> $name {
-			my Str $n = lc $name;
-			Simple::Redis.HOW.add_method(
-				Simple::Redis, $n, method ( *@rest ) {
-					return self!__cmd_gen( $name, @rest )
-				}
-			);
-		}
+	#for %!redisCommands.keys -> $name {
+	for %redisCommands.keys -> $name {
+		my Str $n = lc $name;
+		Simple::Redis.HOW.add_method(
+			Simple::Redis, $n, method ( *@rest ) {
+				return self!__cmd_gen( $name, @rest )
+			}
+		);
+	}
 
 	#} # BEGIN end
 
@@ -164,7 +155,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		my Str $info;
 		my Str $l;
 		# Or use .recv and get everything in one call
-		while $l = $!sock.get()  {
+		while $l = $!sock.get() {
 			$info ~= $l ~ "\n";
 		}
 		return $info;
@@ -183,29 +174,35 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		return False;
 	}
 	
-	method get( Str $key ) {
-		my Str $cmd = "*2\r\n\$3\r\nGET\r\n";
-		$cmd ~= "\$" ~ $key.chars ~ "\r\n" ~ $key ~ "\r\n";
-		$!sock.send( $cmd ) or return False;
-		my Str $resp = $!sock.get();
+	#method get( $key ) {
+	#	my Str $cmd = "*2\r\n\$3\r\nGET\r\n";
+	#
+	#	# Redis 'get' supports only strings but in API we allow anything
+	#	# and relay on Perl auto-conversion in concatenation
+	#	$cmd ~= "\$" ~ $key.chars ~ "\r\n" ~ $key ~ "\r\n";
+	#	$!sock.send( $cmd ) or return False;
+	#	my Str $resp = $!sock.get();
+		
+	#	# 'get' returns bulk started with '$'
+	#	# Error replay starts with '-'
+	#	my Str $pfx = substr( $resp, 0, 1 );
+	#	if $pfx eq '-' {  # Protocol error
+	#		$!errormsg = $resp;
+	#		return False;
+	#	}
 
-		my Str $pfx = substr( $resp, 0, 1 );
-		if $pfx eq '-' {  # Protocol error
-			$!errormsg = $resp;
-			return False;
-		}
-
-		# Length of value after '$'
-		my $num = substr( $resp, 1, $resp.chars );
-		if $num < 0 {
-			# -1 - "No such key", return empty
-			return ;
-		} else {
-			my $data = $!sock.get();
-			chomp $data;
-			return $data;
-		}
-	}
+	#	# Length of value after '$'
+	#	my $num = substr( $resp, 1, $resp.chars );
+	#	if $num < 0 {
+	#		# -1 - "No such key", return empty
+	#		return ;
+	#	} else {
+	#		# We can use .recv( $num );...
+	#		my $data = $!sock.get();
+	#		#chomp $data; # .get chomps nl
+	#		return $data;
+	#	}
+	#}
 
 	method echo( $str! ) {
 		my Str $cmd = "*2\r\n\$4\r\necho\r\n\$" ~ $str.bytes ~ "\r\n$str\r\n";
@@ -218,77 +215,15 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		return $resp;
 	}
 
-	# Syntax: 'commandName' => (paramsNum, responseType)
-	# responseType: 1: status only; 2: Int; 3: Str; 4: Bulk; 5: Multi-Bulk
-	#has %!redisCommands = {
-	# Commands with zero params
-		#'BGREWRITEAOF' => (0,1),
-		#'BGSAVE' => (0,1),
-		#'DISCARD' => (0,1),
-		#'FLUSHDB' => (0,1),
-		#'FLUSHALL' => (0,1),
-		#'MULTI' => (0,1), # FIXIT + test 
-		#'PING' => (0,1),
-		#'RANDOMKEY' => (0,4), # FIXIT + test 
-		#'SAVE' => (0,1),
-		#'UNWATCH' => (0,1),
-		#'DBSIZE' => (0,2),
-		#'LASTSAVE' => (0,2),
-	# Commands with one param
-		#'AUTH' => (1,1), # FIXIT + test
-		#'SELECT' => (1,1),
-		#'DECR' => (1,2),
-		#'EXISTS' => (1,2),
-		#'INCR' => (1,2),
-		#'PERSIST' => (1,2),
-		#'STRLEN' => (1,2),
-		#'TTL' => (1,2),
-		#'TYPE' => (1,3)
-	#}
-
-
-	# Commands with one and two parameter
-	#method !__cmd_zeroone( Str $command!, $param? ) {
-	#	my $syntax = %!redisCommands{ uc $command };
-	#	return "Unknown command: $command" if ! $syntax;
-	#
-	#	my $cmd;
-	#	if $syntax[0] == 0 {
-	#		$cmd = "$command\r\n";
-	#	} else {
-	#		#$syntax = %!redisCommands{ uc $command };
-	#		my $clen = $command.bytes;
-	#		my $plen = $param.bytes;
-	#		$cmd = "*2\r\n\$$clen\r\n$command\r\n\$$plen\r\n$param\r\n";
-	#	}
-	#
-	#	$!sock.send( $cmd ) or return False;
-	#	my $resp = $!sock.get() or return False;
-	#
-	#	my $prefix = substr( $resp, 0, 1 );
-	#	return False if $prefix eq '-'; # DB send '-ERR ...'
-	#	#say "C1|$resp|C1";
-	#
-	#	given $syntax[1] {
-	#		when 1 { return True } # Tested above: not error so '+OK'
-	#		when 2|3 { return substr( $resp, 1, $resp.bytes ) } # Int or String
-	#		default { return False }
-	#	}
-	#}
-
-	#has %!redisCommandsMulti = {
-
 	method !__cmd_gen( Str $command!, *@params ) {
-		my $syntax = %redisCommandsMulti{ $command };
+		my $syntax = %redisCommands{ $command };
 		if ! $syntax {
 			$!errormsg = "-Unknown command: $command";
 			return False;
 		}
-		my $n = @params.elems;
-		if $syntax[0] != $n {
-			if $syntax[0] == -1 {
-
-			} elsif $syntax[0] < $n {
+		my Int $n = @params.elems;
+		if $syntax[0] != $n && $syntax[0] != -1 {
+			if $syntax[0] < $n {
 				$!errormsg = "-To much parameters";
 				return False
 			} else {
@@ -318,6 +253,13 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 
 		#my $debug = '';
 		my $len;  my $data;
+
+	# Old try.
+	#	given $syntax[1] {
+	#		when 1 { return True } # Tested above: not error so '+OK'
+	#		when 2|3 { return substr( $resp, 1, $resp.bytes ) } # Int or String
+	#		default { return False }
+	#	}
 		given $prefix {
 			when '-' { $!errormsg =  $resp;  return False; }
 			when '+' {
@@ -377,3 +319,4 @@ under the same terms as Perl itself.
 
 =end pod
 
+#}
