@@ -2,7 +2,7 @@
 
 use v6;
 
-class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
+class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 
 	# BEGIN {
 
@@ -10,6 +10,10 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	# 'commandName' => (paramsNum, responseType)
 	# paramsNum: -1: vararg; rest: num of params
 	# responseType: 1: status only; 2: Int; 3: Str; 4: Bulk; 5: Multi-Bulk
+	# Comment: responseType is nearly not used. Only (x,1) is used.
+	# 	Response parsing is done in 'protocol way' by 1st character checking.
+	#	Static/table approach breaks eg. on transactions, where '+QUEUED' is
+	#	returned for all commands in transaction body.
 
 	# const it should be...
 	#our %redisCommands = { 
@@ -17,12 +21,15 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	my %redisCommands = { 
 		'BGREWRITEAOF' => (0,1),
 		'BGSAVE' => (0,1),
-		'DISCARD' => (0,1),
 		'FLUSHALL' => (0,1),
 		'FLUSHDB' => (0,1),
 		'PING' => (0,1),
 		'SAVE' => (0,1),
+		'DISCARD' => (0,1),
+		'EXEC' => (0,5),
+		'MULTI' => (0,1),
 		'UNWATCH' => (0,1),
+		'WATCH' => (-1,1),
 		'DBSIZE' => (0,2),
 		'LASTSAVE' => (0,2),
 		'GET' => (1,4),
@@ -102,7 +109,6 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 		'SREM' => (-1,2),
 		'SUNION' => (-1,5),
 		'SUNIONSTORE' => (-1,2),
-		'WATCH' => (-1,1),
 		'ZADD' => (-1,2),
 		'ZCARD' => (1,2),
 		'ZCOUNT' => (3,2),
@@ -135,6 +141,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 
 	has $!sock; # is rw;
 	has Str $!errormsg = ''; # is rw;
+	has Str $!infomsg = ''; # is rw;
 
 	method connect( $host, $port ) {
 		$!sock = IO::Socket::INET.new( :$host, :$port );
@@ -216,6 +223,9 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 	}
 
 	method !__cmd_gen( Str $command!, *@params ) {
+		# for additional info about '+' returning commands
+		$!infomsg = '';
+
 		my $syntax = %redisCommands{ $command };
 		if ! $syntax {
 			$!errormsg = "-Unknown command: $command";
@@ -231,7 +241,14 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 				return False;
 			}
 		}
+		#elsif $syntax[0] == -1 {
+		# checks for commands with variable number of params
+		#
+		#
+		#}
+
 		$!errormsg = '';
+
 		my $cmd;
 		if $syntax[0] == 0 {
 			$cmd = "$command\r\n";
@@ -246,25 +263,30 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 			}
 		}
 
+		# send command...
 		$!sock.send( $cmd ) or return False;
 
+		#my Int $len;  my $data;
+		my $len;  my Str $data;
+
+		# ... and get result
 		my $resp = $!sock.get() or return False;
+
 		my $prefix = substr( $resp, 0, 1 );
 
-		#my $debug = '';
-		my $len;  my $data;
-
-	# Old try.
-	#	given $syntax[1] {
-	#		when 1 { return True } # Tested above: not error so '+OK'
-	#		when 2|3 { return substr( $resp, 1, $resp.bytes ) } # Int or String
-	#		default { return False }
-	#	}
 		given $prefix {
 			when '-' { $!errormsg =  $resp;  return False; }
 			when '+' {
-				return True if $syntax[1] == 1;  # '+OK' only so just True
-				return substr( $resp, 1, $resp.bytes )  # String
+				# commands returning status handling
+				$data = substr( $resp, 1, $resp.bytes );
+				if $syntax[1] == 1 || $data eq 'QUEUED' {
+					$!infomsg = $resp;
+					return True;
+				}
+
+				# string result handling
+				$data = substr( $resp, 1, $resp.bytes );
+				return $data;
 			}
 			when ':'  {
 				return substr( $resp, 1, $resp.bytes ) } # Integer
@@ -279,16 +301,44 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 				return $data;
 			}
 			when '*' {  # Multi-Bulk; '*NumMsg\r\n...
+				# Get num of commands in Multi Bulk
 				my $count = substr( $resp, 1, $resp.bytes );
-				return False if $count == -1;  # Nil
+				# -1 indicate Null Multi Bulk
+				return False if $count == -1;
+
 				my @list = ();
+				my Str $c;
 				my $partone;
 				my $val;
-				loop (my $i=0; $i<$count; $i++) {
+				loop (my $i=0; $i < $count; $i++) {
 					$partone = $!sock.get();
+
+#say "D1: ", $partone;
+					# / '+'+? (.*) { push @tails, $1 } <!> /  # TimToady++
+					# lazy .comb would be nice here
+					# ($c,) = $str.comb;
+					$c = substr( $partone, 0, 1 );
 					$len = substr( $partone, 1, $partone.bytes );
-					next if $len == -1;  # Nil
+
+					# check if that particular bulk is empty
+					if $len == -1 {
+						push @list, Any;
+						next;
+					}
+
+					# check if bulk starts with '+' or ':' - one-line response,
+					# required at least by transactions
+					# '-' too ?
+					if $c eq '+' || $c eq ':' {
+						# in this case $len(gth) is value...
+						push @list, $len;
+						next;
+					}
+
+					# else get content
+#print "D2: ";
 					$data = $!sock.get();
+#say $data;
 					while $data.bytes < $len {
 						$data ~= "\r\n" ~ $!sock.get();
 					}
@@ -302,6 +352,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.2.2> {
 
 	method sync() {
 		return "Command for use by slave storage only";
+
 		#$!sock.send( "SYNC\r\n" ) or return False;
 		## Flush socket
 		#$!sock.get(); $!sock.get(); return True;

@@ -27,13 +27,16 @@ is $re, 'Bool::True', '2 ok';
 $re = $redis.bgrewriteaof();
 is $re, 'Bool::True', '3 ok';
 
-$re = $redis.bgsave();
-is $re, 'Bool::True', '4 ok';
-
 $re = $redis.lastsave();
-#is $re, /\d+/, '5 ok';
-#ok( $re ~~ /^:\d+/, '5 ok');
-ok( $re ~~ /\d+/, '5 ok');
+#is $re, /\d+/, '4 ok';
+#ok( $re ~~ /^:\d+/, '4 ok');
+ok( $re ~~ /\d+/, '4 ok');
+
+say "Sleep for a while...";
+sleep 1;
+
+$re = $redis.bgsave();
+is $re, 'Bool::True', '5 ok';
 
 
 # Flush db
@@ -63,7 +66,7 @@ is $re, Any, '10 ok';
 
 # Other tests
 $re = $redis.ping();
-is $re, 'Bool::True', '11 ok';
+is $re, True, '11 ok';
 
 $re = $redis.set( "t3", "abc def" );
 is $re, 'Bool::True', '12 ok';

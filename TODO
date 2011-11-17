@@ -1,13 +1,22 @@
+Dev work:
 * Write commands for:
  - pub/sub
- - transactions
  - configuration management
- - debuging
+ - debugging
 * Testing
-* Extract command which needs special threatment (if needed)
 * Documentation
 * Examples
-* Profiling
+* Profiling on stable Perl6 implementation :)
+
+LHF:
+* lc command names in command hash
+* few commands use old syntax disallowing variable params;
+  Migration to v2.4 syntax needed
+* test AUTH command
+
+Other:
+* Extract commands which needs special threatment ?
+* make multi-bulk parsing use bulk parsing + pipelining ?
+* split command sending and reply parsing ?
 * Non-blocking API ?
-* LHF: lc command names in command hash...
 
