@@ -6,7 +6,7 @@ use Simple::Redis;
 my $host = '127.0.0.1';
 my $port = '6379';
 
-plan 22;
+plan 23;
 
 my $e;
 my $r = Simple::Redis.new;
@@ -56,24 +56,25 @@ my @l = $r.hgetall( "hsh" );
 is @l.elems, 4, '14 ok';
 
 $e = $r.hincrby( "hsh", "a", 2 );
-$e = $r.hget( "hsh", "a" );
 is $e, 3, '15 ok';
+$e = $r.hget( "hsh", "a" );
+is $e, 3, '16 ok';
 
 @l = $r.hkeys( "hsh" );
-is @l.elems, 2, '16 ok';
+is @l.elems, 2, '17 ok';
 
 
 $e = $r.hlen( "hsh" );
-is $e, 2, '17 ok';
+is $e, 2, '18 ok';
 
 $r.flushdb();
 $e = $r.hset( "hsh", "a", 1 );
 $e = $r.hset( "hsh", "b", 2 );
 $e = $r.hset( "hsh", "c", 3 );
 @l = $r.hmget( "hsh", "a", "b" );
-is @l.elems, 2, '18 ok';
-$e = $r.hmget( "hsh", "a", "d", "b" );
 is @l.elems, 2, '19 ok';
+$e = $r.hmget( "hsh", "a", "d", "b" );
+is @l.elems, 2, '20 ok';
 
 
 $r.flushdb();
@@ -81,18 +82,18 @@ $e = $r.hset( "hsh", "a", 1 );
 $e = $r.hset( "hsh", "b", 2 );
 $e = $r.hset( "hsh", "c", 3 );
 @l = $r.hvals( "hsh" );
-is @l.elems, 3, '20 ok';
+is @l.elems, 3, '21 ok';
 
 my @h;
 my $a = "abc\r\ndef";
 $r.hset( "hsh", "d", $a );
 @h = $r.hmget( "hsh", "d" );
-is @h[0], $a, '21 ok';
+is @h[0], $a, '22 ok';
 
 my $b = "abc\r\ndef\r\n";
 $r.hset( "hsh", "e", $b );
 @h = $r.hmget( "hsh", "e" );
-is @h[0], $b, '22 ok';
+is @h[0], $b, '23 ok';
 
 
 $e = $r.quit();

@@ -4,8 +4,6 @@ Dev work:
  - configuration management
  - debugging
 * Testing
-* Documentation
-* Examples
 * Profiling on stable Perl6 implementation :)
 
 LHF:
@@ -19,4 +17,6 @@ Other:
 * make multi-bulk parsing use bulk parsing + pipelining ?
 * split command sending and reply parsing ?
 * Non-blocking API ?
+* Documentation
+* Examples
 

@@ -14,14 +14,9 @@ my $re;
 
 $re = $redis.connect( $host, $port ) or die();
 
-$re = $redis.auth( "nopass" );
-is $re, False, '1 ok';
-
-# Password protected server needed; exclusive
-# with test above
-#say "Authorization:";
-#$re = $redis.auth( "secret" );
-#is $re, True, '1 ok';
+# when no pass on server then always '+OK'
+$re = $redis.auth( "secret" );
+is $re, True, '1 ok';
 
 $re = $redis.set( "a", "2" );
 $re = $redis.decr( "a" );

@@ -2,7 +2,7 @@ use v6;
 use Test;
 use Simple::Redis;
 
-plan 11;
+plan 13;
 
 my $e;  my @l;
 my $host = '127.0.0.1';
@@ -39,9 +39,19 @@ is $e, True, '9 ok';
 is @l[0], 'OK', '10 ok';
 
 $r.multi();
+$r.hset( 'h', 'a', 'h2' );
+$e = $r.mget( "a", "b", "c" );
+is $e, True, '11 ok';
+$r.get( 'a' );
+@l = $r.exec();
+#say "|",  @l.perl;
+is @l, ["0", ["3", "3", "4"], "3"], "12 ok";
+
+
+$r.multi();
 $r.hset( 'h', 'a', 'h1' );
 $e = $r.discard();
-is $e, 'Bool::True', '11 ok';
+is $e, 'Bool::True', '13 ok';
 
 done;
 

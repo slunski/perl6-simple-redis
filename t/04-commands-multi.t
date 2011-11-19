@@ -73,6 +73,7 @@ $redis.set( "a", 0 );
 $redis.set( "b", 1 );
 $redis.set( "c", 2 );
 $redis.set( "d", 3 );
+say "12. mget test";
 my @m = $redis.mget( "a", "b", "c", "d" );
 is @m.elems, 4, '12 ok';
 

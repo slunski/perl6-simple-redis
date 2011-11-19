@@ -44,7 +44,7 @@ then use Perl6 'ufo' tool to get Makefile:
 
 TODO
 
-Simple::Redis is young project and still under heav development. At
+Simple::Redis is young project and still under heavy development. At
 the moment all commands for normal - db-like-usage - are implemented.
 Missing commands are mainly responsible for remote Redis administration.
 List of things still missing can be found in TODO file.

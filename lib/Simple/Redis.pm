@@ -266,88 +266,113 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 		# send command...
 		$!sock.send( $cmd ) or return False;
 
-		#my Int $len;  my $data;
-		my $len;  my Str $data;
+		my $data;
+		my $len;  my $cnum = 1;
+
+		# state: 0 - return single value; 1 - multi-bulk
+		my Int $state = 0;
+		my @mblist;
 
 		# ... and get result
-		my $resp = $!sock.get() or return False;
+		my Str $resp = $!sock.get() or return False;
+		my Str $prefix = substr( $resp, 0, 1 );
 
-		my $prefix = substr( $resp, 0, 1 );
+		if $prefix eq '*' {
+			$state = 1;
+			$cnum = substr( $resp, 1, $resp.bytes );
+		}
 
-		given $prefix {
-			when '-' { $!errormsg =  $resp;  return False; }
-			when '+' {
-				# commands returning status handling
-				$data = substr( $resp, 1, $resp.bytes );
-				if $syntax[1] == 1 || $data eq 'QUEUED' {
-					$!infomsg = $resp;
-					return True;
-				}
-
-				# string result handling
-				$data = substr( $resp, 1, $resp.bytes );
-				return $data;
+		loop (my $i=0; $i < $cnum; $i++) {
+			if $state == 1 {
+				$resp = $!sock.get() or return False;
+				$prefix = substr( $resp, 0, 1 );
 			}
-			when ':'  {
-				return substr( $resp, 1, $resp.bytes ) } # Integer
-			when '$' {  # Bulk; $MsgLen\r\n
-				$len = substr( $resp, 1, $resp.bytes );
-				return if $len == -1;  # Nil
-				$data = $!sock.get();
-				while $data.bytes < $len {
-					$data ~= "\r\n" ~ $!sock.get();
-				}
-				#return substr( $data, 0, $len );
-				return $data;
-			}
-			when '*' {  # Multi-Bulk; '*NumMsg\r\n...
-				# Get num of commands in Multi Bulk
-				my $count = substr( $resp, 1, $resp.bytes );
-				# -1 indicate Null Multi Bulk
-				return False if $count == -1;
-
-				my @list = ();
-				my Str $c;
-				my $partone;
-				my $val;
-				loop (my $i=0; $i < $count; $i++) {
-					$partone = $!sock.get();
-
-#say "D1: ", $partone;
-					# / '+'+? (.*) { push @tails, $1 } <!> /  # TimToady++
-					# lazy .comb would be nice here
-					# ($c,) = $str.comb;
-					$c = substr( $partone, 0, 1 );
-					$len = substr( $partone, 1, $partone.bytes );
-
-					# check if that particular bulk is empty
-					if $len == -1 {
-						push @list, Any;
+			given $prefix {
+				when '-' { $!errormsg =  $resp; $data = False; }
+				when '+' {
+					# commands returning status handling
+					$data = substr( $resp, 1, $resp.bytes );
+					if $syntax[1] == 1 || $data eq 'QUEUED' {
+						$!infomsg = $resp;
+						$data = True;
 						next;
 					}
 
-					# check if bulk starts with '+' or ':' - one-line response,
-					# required at least by transactions
-					# '-' too ?
-					if $c eq '+' || $c eq ':' {
-						# in this case $len(gth) is value...
-						push @list, $len;
+					# string result handling
+					$data = substr( $resp, 1, $resp.bytes );
+				}
+				when ':'  {
+					$data = substr( $resp, 1, $resp.bytes ) } # Integer
+				when '$' {  # Bulk; $MsgLen\r\n
+					$len = substr( $resp, 1, $resp.bytes );
+					if $len == -1  {
+						# Nil
+						$data = Any;
 						next;
 					}
-
-					# else get content
-#print "D2: ";
 					$data = $!sock.get();
-#say $data;
 					while $data.bytes < $len {
 						$data ~= "\r\n" ~ $!sock.get();
 					}
-					push @list, $data;
+					#$data;
 				}
-				return @list;
+				when '*' {
+					# this case parse internal multi-bulk, eg. inside transactions
+
+					my @list = ();
+
+					my $count = substr( $resp, 1, $resp.bytes );
+					# -1 indicate Null Multi Bulk
+					if $count == -1 {
+						push @list, False;
+						next;
+					}
+
+					my Str $c;
+					my $partone;
+					my $val;
+					loop (my $m=0; $m < $count; $m++) {
+						$partone = $!sock.get();
+
+						# / '+'+? (.*) { push @tails, $1 } <!> /  # TimToady++
+						# lazy .comb would be nice here
+						# ($c,) = $str.comb;
+						$c = substr( $partone, 0, 1 );
+						$len = substr( $partone, 1, $partone.bytes );
+
+						# check if that particular bulk is empty
+						if $len == -1 {
+							push @list, Any;
+							next;
+						}
+
+						# check if bulk starts with '+' or ':' - one-line response,
+						# required at least by transactions
+						# '-' too ?
+						if $c eq '+' || $c eq ':' {
+							# in this case $len(gth) is value...
+							push @list, $len;
+							next;
+						}
+
+						# else get content
+						my $repl = $!sock.get();
+						while $repl.bytes < $len {
+							$repl ~= "\r\n" ~ $!sock.get();
+						}
+						push @list, $repl;
+					}
+					$data = @list;
+				}
+				default {
+					# Protocol error if here
+					return False;
+				}
 			}
-			default { return False }
+			push @mblist, $data if $state == 1;
 		}
+		return @mblist if $state == 1;
+		return $data;
 	}
 
 	method sync() {
