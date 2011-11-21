@@ -10,9 +10,9 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 	# 'commandName' => (paramsNum, responseType)
 	# paramsNum: -1: vararg; rest: num of params
 	# responseType: 1: status only; 2: Int; 3: Str; 4: Bulk; 5: Multi-Bulk
-	# Comment: responseType is nearly not used. Only (x,1) is used.
+	# Comment: responseType is nearly not used. Case (x,1) used for faster method return.
 	# 	Response parsing is done in 'protocol way' by 1st character checking.
-	#	Static/table approach breaks eg. on transactions, where '+QUEUED' is
+	#	Static table return code checking breaks eg. on transactions, where '+QUEUED' is
 	#	returned for all commands in transaction body.
 
 	# const it should be...
@@ -132,6 +132,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 		my Str $n = lc $name;
 		Simple::Redis.HOW.add_method(
 			Simple::Redis, $n, method ( *@rest ) {
+				# Commands sanity checks ?
 				return self!__cmd_gen( $name, @rest )
 			}
 		);
@@ -181,36 +182,6 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 		return False;
 	}
 	
-	#method get( $key ) {
-	#	my Str $cmd = "*2\r\n\$3\r\nGET\r\n";
-	#
-	#	# Redis 'get' supports only strings but in API we allow anything
-	#	# and relay on Perl auto-conversion in concatenation
-	#	$cmd ~= "\$" ~ $key.chars ~ "\r\n" ~ $key ~ "\r\n";
-	#	$!sock.send( $cmd ) or return False;
-	#	my Str $resp = $!sock.get();
-		
-	#	# 'get' returns bulk started with '$'
-	#	# Error replay starts with '-'
-	#	my Str $pfx = substr( $resp, 0, 1 );
-	#	if $pfx eq '-' {  # Protocol error
-	#		$!errormsg = $resp;
-	#		return False;
-	#	}
-
-	#	# Length of value after '$'
-	#	my $num = substr( $resp, 1, $resp.chars );
-	#	if $num < 0 {
-	#		# -1 - "No such key", return empty
-	#		return ;
-	#	} else {
-	#		# We can use .recv( $num );...
-	#		my $data = $!sock.get();
-	#		#chomp $data; # .get chomps nl
-	#		return $data;
-	#	}
-	#}
-
 	method echo( $str! ) {
 		my Str $cmd = "*2\r\n\$4\r\necho\r\n\$" ~ $str.bytes ~ "\r\n$str\r\n";
 		$!sock.send( $cmd ) or return False;
@@ -223,38 +194,39 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 	}
 
 	method !__cmd_gen( Str $command!, *@params ) {
-		# for additional info about '+' returning commands
-		$!infomsg = '';
-
 		my $syntax = %redisCommands{ $command };
-		if ! $syntax {
-			$!errormsg = "-Unknown command: $command";
-			return False;
-		}
+
+		#if ! $syntax {
+		#	$!errormsg = "Unknown command: $command";
+		#	return False;
+		#}
+
 		my Int $n = @params.elems;
+		# Server will detect params mismatch but by checking
+		# here we avoid unnecesary network round trip
 		if $syntax[0] != $n && $syntax[0] != -1 {
 			if $syntax[0] < $n {
-				$!errormsg = "-To much parameters";
+				$!errormsg = "To much parameters";
 				return False
 			} else {
-				$!errormsg = "-To few parameters";
+				$!errormsg = "To few parameters";
 				return False;
 			}
 		}
-		#elsif $syntax[0] == -1 {
-		# checks for commands with variable number of params
-		#
-		#
-		#}
 
+		# C 'errno'-like field, cleaned here in every command call
 		$!errormsg = '';
 
-		my $cmd;
+		# Command construction
+		my Str $cmd;
 		if $syntax[0] == 0 {
+			# Command do not have params, send it without wrapping
 			$cmd = "$command\r\n";
 		} else {
+			# Command are send in multi-bulk format
 			my $clen = $command.bytes;
-			$n++; # Command as param matters in protocol
+			$n++; # +1 - command as param matters in protocol
+
 			$cmd = "*$n\r\n\$$clen\r\n$command\r\n";
 			
 			for @params -> $p {
@@ -263,53 +235,64 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 			}
 		}
 
-		# send command...
+		# Command sending
 		$!sock.send( $cmd ) or return False;
 
+		# Response parsing
 		my $data;
-		my $len;  my $cnum = 1;
-
-		# state: 0 - return single value; 1 - multi-bulk
-		my Int $state = 0;
 		my @mblist;
 
-		# ... and get result
+		# mbmode: 0 - return single value; 1 - multi-bulk
+		my Int $mbmode = 0;
+		# Default loop count is 1 for getting single value
+		my $cnum = 1;
+
 		my Str $resp = $!sock.get() or return False;
 		my Str $prefix = substr( $resp, 0, 1 );
+		# second part of response used by all cases
+		$data = substr( $resp, 1, $resp.bytes );
 
 		if $prefix eq '*' {
-			$state = 1;
-			$cnum = substr( $resp, 1, $resp.bytes );
+			$mbmode = 1;
+			$cnum = $data;
 		}
 
+		# Real loop only for * (multi-bulk), in other cases only once
 		loop (my $i=0; $i < $cnum; $i++) {
-			if $state == 1 {
+			if $mbmode {
+				# Read next line of reply
 				$resp = $!sock.get() or return False;
+				# ($prefix,$data) = $headtail( $resp );  # C/asm level would be nice :)
 				$prefix = substr( $resp, 0, 1 );
+				$data = substr( $resp, 1, $resp.bytes );
 			}
 			given $prefix {
-				when '-' { $!errormsg =  $resp; $data = False; }
+				when '-' {
+					$!errormsg = $command ~ ": " ~ $data;
+					$data = False;
+				}
 				when '+' {
-					# commands returning status handling
-					$data = substr( $resp, 1, $resp.bytes );
+					# returning status and in-transaction commands handling
 					if $syntax[1] == 1 || $data eq 'QUEUED' {
-						$!infomsg = $resp;
 						$data = True;
 						next;
 					}
-
-					# string result handling
-					$data = substr( $resp, 1, $resp.bytes );
+					# Command returning string handling
+					# And already assigned...
+					#$data;
 				}
 				when ':'  {
-					$data = substr( $resp, 1, $resp.bytes ) } # Integer
-				when '$' {  # Bulk; $MsgLen\r\n
-					$len = substr( $resp, 1, $resp.bytes );
-					if $len == -1  {
+					# Integer commands handling
+					#$data;
+				}
+				when '$' {
+					# Bulk commands, format: '$msgLen\r\n'
+					if $data == -1  {
 						# Nil
 						$data = Any;
 						next;
 					}
+					my $len = $data;
 					$data = $!sock.get();
 					while $data.bytes < $len {
 						$data ~= "\r\n" ~ $!sock.get();
@@ -317,41 +300,34 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 					#$data;
 				}
 				when '*' {
-					# this case parse internal multi-bulk, eg. inside transactions
-
+					# here we parse internal multi-bulk, eg. inside transactions
 					my @list = ();
 
-					my $count = substr( $resp, 1, $resp.bytes );
 					# -1 indicate Null Multi Bulk
-					if $count == -1 {
+					if $data == -1 {
 						push @list, False;
 						next;
 					}
-
-					my Str $c;
-					my $partone;
-					my $val;
+					my $count = $data;
+					#my Str $p;
+					#my $line;
 					loop (my $m=0; $m < $count; $m++) {
-						$partone = $!sock.get();
+						my $line = $!sock.get();
 
-						# / '+'+? (.*) { push @tails, $1 } <!> /  # TimToady++
-						# lazy .comb would be nice here
-						# ($c,) = $str.comb;
-						$c = substr( $partone, 0, 1 );
-						$len = substr( $partone, 1, $partone.bytes );
+						my Str $p = substr( $line, 0, 1 );
+						my $len = substr( $line, 1, $line.bytes );
+
+						# check if bulk starts with '+' or ':' - one-line response,
+						# '-' too ?
+						if $p eq '+' || $p eq ':' {
+							# in this case $len(gth) is value...
+							push @list, $len;
+							next;
+						}
 
 						# check if that particular bulk is empty
 						if $len == -1 {
 							push @list, Any;
-							next;
-						}
-
-						# check if bulk starts with '+' or ':' - one-line response,
-						# required at least by transactions
-						# '-' too ?
-						if $c eq '+' || $c eq ':' {
-							# in this case $len(gth) is value...
-							push @list, $len;
 							next;
 						}
 
@@ -365,18 +341,20 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 					$data = @list;
 				}
 				default {
-					# Protocol error if here
+					# Not reachable
+					$!errormsg = 'Protocol error';
 					return False;
 				}
-			}
-			push @mblist, $data if $state == 1;
-		}
-		return @mblist if $state == 1;
-		return $data;
+			}  # end given
+			push @mblist, $data if $mbmode == 1; 
+		}  # End command parse loop
+		return $data if $mbmode == 0;
+		return @mblist
 	}
 
 	method sync() {
-		return "Command for use by slave storage only";
+		$!errormsg = "Command for use by slave storage only";
+		return False;
 
 		#$!sock.send( "SYNC\r\n" ) or return False;
 		## Flush socket

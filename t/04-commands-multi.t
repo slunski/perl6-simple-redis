@@ -17,8 +17,9 @@ $re = $redis.connect( $host, $port ) or die();
 # Error message
 $re = $redis.decrby( "e", "r", "r", "o", "r" );
 my $e = $redis.errormsg();
-#say "Error: bad args count: $e";
-ok( $e ~~ /^\-/,  '1 ok' );
+say "Error: bad args count: :$e:";
+#ok( $e ~~ /^To much/,  '1 ok' );
+is $e, 'To much parameters', '1 ok';
 
 
 $redis.set( "a", 0 );

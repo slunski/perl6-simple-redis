@@ -4,7 +4,7 @@ many interesting data structures like hashes, lists, sets and sorted
 sets. Additionally features like transactions, commands queue,
 publish/subscribe mode and replication are build in. This allow
 to classify Redis as "rich NoSQL" database. And last but not least -
-Redis performance is very high: it can execute 100k rw ops/sec.
+Redis performance is very high, for details see Redis homepage.
 
 Redis use simple client-server protocol - request/response is just set
 of text lines (UTF-8 aware) finsihed with "\r\n". This make Redis
@@ -44,10 +44,10 @@ then use Perl6 'ufo' tool to get Makefile:
 
 TODO
 
-Simple::Redis is young project and still under heavy development. At
-the moment all commands for normal - db-like-usage - are implemented.
-Missing commands are mainly responsible for remote Redis administration.
-List of things still missing can be found in TODO file.
+Simple::Redis is young project and still under development. At the moment
+all commands for normal - db-like-usage - are implemented.  Missing
+commands are mainly responsible for remote Redis administration.  List
+of other missing things can be found in TODO file.
 
 
 BUGS

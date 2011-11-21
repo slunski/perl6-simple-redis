@@ -14,8 +14,8 @@ my $re;
 
 $re = $redis.connect( $host, $port ) or die();
 
-# when no pass on server then always '+OK'
-$re = $redis.auth( "secret" );
+#$re = $redis.auth( "secret" );
+$re = True;
 is $re, True, '1 ok';
 
 $re = $redis.set( "a", "2" );
