@@ -141,8 +141,14 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 	#} # BEGIN end
 
 	has $!sock; # is rw;
+	# SIMPLE - blocking, create command string, send, receive and parse, just work
+	# PIPE - collect commands strings, send all, then read replies
+	has $!mode = 'SIMPLE'; # is rw;
 	has Str $!errormsg = ''; # is rw;
 	has Str $!infomsg = ''; # is rw;
+
+
+	method setMode( String $m ) { $!mode = $m; }  # some tests needed before assign
 
 	method connect( $host, $port ) {
 		$!sock = IO::Socket::INET.new( :$host, :$port );
@@ -193,7 +199,8 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 		return $resp;
 	}
 
-	method !__cmd_gen( Str $command!, *@params ) {
+	#method !__cmd_gen( Str $command!, *@params ) {
+	method !__prepare_cmd( Str $command!, *@params ) {
 		my $syntax = %redisCommands{ $command };
 
 		#if ! $syntax {
@@ -235,8 +242,19 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.3> {
 			}
 		}
 
-		# Command sending
-		$!sock.send( $cmd ) or return False;
+		# Command sending if SIMPLE mode
+		if $!mode eq 'SIMPLE' {
+			$!sock.send( $cmd ) or return False;
+		} elsif $!mode eq 'PIPE' {
+			return $cmd;
+		} else { 
+			$!errormsg = 'Bad mode !';
+			return False;
+		}
+	}
+
+
+	method !__parse_result( Str $command!, *@params ) {
 
 		# Response parsing
 		my $data;
