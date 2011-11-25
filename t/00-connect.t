@@ -20,7 +20,7 @@ $re = $redis.connect( $host, $port );
 is $re, 'Bool::True', '3 ok';
 
 $re = $redis.ping();
-is $re, True, '4 ok';
+is $re, 'PONG', '4 ok';
 
 $re = $redis.quit();
 is $re, 'Bool::True', '5 ok';

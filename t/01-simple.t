@@ -14,6 +14,8 @@ my $redis = Simple::Redis.new;
 
 $re = $redis.connect( $host, $port );
 
+$redis.flushdb();
+
 $re = $redis.info();
 ok( $re ~~ /\w+/, '1 ok');
 

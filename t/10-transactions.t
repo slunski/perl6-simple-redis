@@ -36,7 +36,7 @@ is $e, False, '8 ok';
 $e = $r.get( 'a' );
 is $e, True, '9 ok';
 @l = $r.exec();
-is @l[0], 'OK', '10 ok';
+is @l[0], True, '10 ok';
 
 $r.multi();
 $r.hset( 'h', 'a', 'h2' );
