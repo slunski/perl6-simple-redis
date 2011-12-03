@@ -6,7 +6,7 @@ use Simple::Redis;
 plan 11;
 
 my $host = '127.0.0.1';
-my $port = '6379';
+my $port = 6379;
 
 my $re;
 
@@ -20,19 +20,19 @@ $re = $redis.info();
 ok( $re ~~ /\w+/, '1 ok');
 
 $re = $redis.set( "t1", "abc" );
-is $re, 'Bool::True', '2 ok';
+is $re, Bool::True, '2 ok';
 
 $re = $redis.get( "t1" );
 is $re, 'abc', '3 ok';
 
 $re = $redis.set( "t2", 0 );
-is $re, 'Bool::True', '4 ok';
+is $re, Bool::True, '4 ok';
 
 $re = $redis.get( "t2" );
 is $re, 0, '5 ok';
 
 $re = $redis.set( "t3", "abc def" );
-is $re, 'Bool::True', '6 ok';
+is $re, Bool::True, '6 ok';
 
 $re = $redis.get( "t3" );
 is $re, "abc def", '7 ok';
@@ -43,7 +43,7 @@ $re = $redis.get( "t1" );
 is $re, Any, '8 ok';
 
 $re = $redis.set( 3, "c" );
-is $re, 'Bool::True', '9 ok';
+is $re, Bool::True, '9 ok';
 
 $re = $redis.get( 3 );
 is $re, 'c', '10 ok';

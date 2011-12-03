@@ -4,7 +4,7 @@ use Test;
 use Simple::Redis;
 my $r = Simple::Redis.new;
 my $host = '127.0.0.1';
-my $port = '6379';
+my $port = 6379;
 $r.connect( $host, $port );
 
 my $e;

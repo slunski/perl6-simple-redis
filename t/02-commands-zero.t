@@ -6,9 +6,9 @@ use Simple::Redis;
 plan 13;
 
 my $host = '127.0.0.1';
-my $port = '6379';
+my $port = 6379;
 my $redis = Simple::Redis.new;
-$re = $redis.connect( $host, $port );
+$redis.connect( $host, $port );
 
 my $re;
 
@@ -22,7 +22,7 @@ is $re, 3, '1 ok';
 
 # Save methods
 $re = $redis.save();
-is $re, 'Bool::True', '2 ok';
+is $re, Bool::True, '2 ok';
 
 $re = $redis.bgrewriteaof();
 is $re, 'Background append only file rewriting started', '3 ok';
@@ -41,7 +41,7 @@ is $re, 'Background saving started', '5 ok';
 
 # Flush db
 $re = $redis.flushdb();
-is $re, 'Bool::True', '6 ok';
+is $re, Bool::True, '6 ok';
 
 # Check if realy empty db
 $re = $redis.get( "t1" );
@@ -54,7 +54,7 @@ $re = $redis.set( "db0", "k1" );
 $re = $redis.set( "db1", "k2" );
 
 $re = $redis.flushall();
-is $re, 'Bool::True', '8 ok';
+is $re, Bool::True, '8 ok';
 
 $redis.select( 0 );
 $re = $redis.get( "db0" );
@@ -69,7 +69,7 @@ $re = $redis.ping();
 is $re, 'PONG', '11 ok';
 
 $re = $redis.set( "t3", "abc def" );
-is $re, 'Bool::True', '12 ok';
+is $re, Bool::True, '12 ok';
 
 $re = $redis.get( "t3" );
 say "Got: $re";

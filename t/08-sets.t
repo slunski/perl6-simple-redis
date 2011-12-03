@@ -4,7 +4,7 @@ use Test;
 use Simple::Redis;
 
 my $host = '127.0.0.1';
-my $port = '6379';
+my $port = 6379;
 
 my $r = Simple::Redis.new;
 $r.connect( $host, $port );
@@ -71,7 +71,7 @@ $e = $r.sunion( "lst" );
 $e = $r.sunionstore( "lst" );
 
 
-is $e, 'Bool::True', '3 ok';
+is $e, Bool::True, '3 ok';
 
 
 done;

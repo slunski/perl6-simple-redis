@@ -8,7 +8,7 @@ use Simple::Redis;
 plan 8;
 
 my $host = '127.0.0.1';
-my $port = '6379';
+my $port = 6379;
 my $redis = Simple::Redis.new;
 my $re;
 
@@ -51,7 +51,7 @@ is $re, 'string', '8 ok';
 
 #say "Expiration";
 #$re = $redis.persist();
-#is $re, 'Bool::True', '6 ok';
+#is $re, Bool::True, '6 ok';
 #$re = $redis.ttl( "a" );
 #is $re, ':-1', '9 ok';
 #$re = $redis.expire( "a", 11 );

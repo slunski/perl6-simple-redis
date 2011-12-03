@@ -14,12 +14,10 @@ my $redis = Simple::Redis.new or die();
 $re = $redis.connect( $host, $port ) or die();
 
 
-# Error message
+# Error message test, should detect too much params
 $re = $redis.decrby( "e", "r", "r", "o", "r" );
 my $e = $redis.errormsg();
-say "Error: bad args count: :$e:";
-#ok( $e ~~ /^To much/,  '1 ok' );
-is $e, 'To much parameters', '1 ok';
+is $e, 'Bad parameters count', '1 ok';
 
 
 $redis.set( "a", 0 );
