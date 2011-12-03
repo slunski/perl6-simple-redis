@@ -20,8 +20,8 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.7> {
 	has Str $!infomsg = ''; # is rw;
 	# SIMPLE - blocking, create command string, send, receive and parse, just work
 	# PIPE - collect commands strings, send all, then read replies
-	has $!mode = 'SIMPLE'; # is rw;
-	has Str $!pipedCommands = ''; # is rw;
+	our enum Mode <SIMPLE PIPELINE SUBPUB>;
+	has Int $!mode = SIMPLE; # is rw;
 	has Int $!pipedCount = 0; # is rw;
 	has Str $!pool = ''; # is rw;
 
@@ -138,47 +138,83 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.7> {
 	}
 
 	#for %!redisCommands.keys -> $name {
-	for %redisCommands.keys -> $name {
+	for %redisCommands.kv -> $name, $val {
 		my Str $n = lc $name;
-		Simple::Redis.HOW.add_method(
-			Simple::Redis, $n, method ( *@rest ) {
-				# Commands sanity checks ?
-				my $cmd = self!__prepare_cmd( $name, @rest ) or return False;
-				#self!__prepare_cmd( $name, @rest ) or return False;
-				if $!mode eq 'SIMPLE' {
-					#self!__parse_result( $name, @rest );
-					self!__parse_result();
-				} else {
-					$!pipedCommands ~= $cmd;
-					#$!pipedCount++;
+		if $val[0] == 0 {
+			Simple::Redis.HOW.add_method(
+				Simple::Redis, $n, method ( *@rest ) {
+					my Str $cmd = "$n\r\n";
+					if $!mode eq 'SIMPLE' {
+						$!sock.send( $cmd ) or return False;
+						self!__parse_result();
+					} else {
+						# mode P(IPE)
+						$!pool ~= $cmd;
+						$!pipedCount++;
+					}
 				}
-			}
-		);
+			);
+		} else {
+			Simple::Redis.HOW.add_method(
+				Simple::Redis, $n, method ( *@rest ) {
+					my Str $cmd;
+					my Int $m = @rest.elems;
+					if $val[0] != $m && $val[0] != -1 {
+						$!errormsg = 'Bad parameters count';
+						return False;
+					}
+					# Commands are send in multi-bulk format
+					my $clen = $n.bytes;
+					my $plen;  my $p;
+					if @rest.elems == 1 {
+					$cmd = "*2\r\n\$$clen\r\n$n\r\n";
+						$p = shift @rest;
+						$plen = $p.bytes;
+						$cmd ~= "\$$plen\r\n$p\r\n";
+					} else {
+						# +1 - command as param matters in protocol
+						$m++;
+						$cmd = "*$m\r\n\$$clen\r\n$n\r\n";
+						for @rest -> $p {
+						#$plen = $p.bytes;
+							$cmd ~= "\$" ~ $p.bytes ~ "\r\n$p\r\n";
+						}
+					}
+					if $!mode eq 'SIMPLE' {
+						$!sock.send( $cmd ) or return False;
+						self!__parse_result();
+					} else {
+						# mode PIPELINE
+						$!pool ~= $cmd;
+						$!pipedCount++;
+					}
+				}
+			);
+		}
 	}
 
 	#} # BEGIN end
 
 	method sendCommands() {
-		#$!sock.send( $!pipedCommands ) or return False;
 		$!sock.send( $!pool ) or return False;
+		$!pool = '';
+		return True;
 	}
 
 	method getResponses() {
 		my @rs;
 		my $a;
-		loop ( my $i = $!pipedCount; $i > 0; $i--) {
+
+		loop ( my int $i = $!pipedCount; $i > 0; $i=$i-1) {
+		#loop ( my Int $i = 10000; $i > 0; $i--) {
 			$a = self!__parse_result();
-			if $!errormsg {
-				return @rs;
-			}
+			#say "ERROR!" if $a ne 'PONG';
 			push @rs, $a;
-			#$!pipedCount--;
 		}
 		return @rs;
 	}
 
-
-	method setMode( Str $m ) { $!mode = $m; }  # some tests needed before assign
+	method setMode( Int $m ) { $!mode = $m; }  # some tests needed before assign
 
 	method connect( $host, $port ) {
 		$!sock = IO::Socket::INET.new( :$host, :$port );
@@ -229,159 +265,102 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.7> {
 		return $resp;
 	}
 
-	#method !__cmd_gen( Str $command!, *@params ) {
-	method !__prepare_cmd( Str $command!, *@params ) {
-		my $syntax = %redisCommands{ $command };
+	method justping() {
+		$!sock.send( "$4\r\nping\r\n" ) or return False;
 
-		#if ! $syntax {
-		#	$!errormsg = "Unknown command: $command";
-		#	return False;
-		#}
-
-		my Int $n = @params.elems;
-		# Server will detect params mismatch but by checking
-		# here we avoid unnecesary network round trip
-		if $syntax[0] != $n && $syntax[0] != -1 {
-			if $syntax[0] < $n {
-				$!errormsg = "To much parameters";
-				return False
-			} else {
-				$!errormsg = "To few parameters";
-				return False;
-			}
-		}
-
-		# C 'errno'-like field, cleaned here in every command call
-		$!errormsg = '';
-
-		# Command construction
-		my Str $cmd;
-		#my $cmd;
-		my $clen;
-		if $syntax[0] == 0 {
-			# Command do not have params, send it without wrapping
-			$cmd = "$command\r\n";
-		} else {
-			$n++; # +1 - command as param matters in protocol
-			# Commands are send in multi-bulk format
-			$clen = $command.bytes;
-
-			$cmd = "*$n\r\n\$$clen\r\n$command\r\n";
-
-			my $plen;
-			my $p;
-			if @params.elems == 1 {
-				$p = shift @params;
-				$plen = $p.bytes;
-				$cmd ~= "\$$plen\r\n$p\r\n";
-			} else {
-			for @params -> $p {
-				$plen = $p.bytes;
-				$cmd ~= "\$$plen\r\n$p\r\n";
-			}
-		}
-		}
-
-		# Command sending if SIMPLE mode
-		if $!mode eq 'SIMPLE' {
-			$!sock.send( $cmd ) or return False;
-		} elsif $!mode eq 'PIPE' {
-			 #$!pool ~= $cmd;
-			 return $cmd;
-		} else { 
-			$!errormsg = 'Bad mode !';
-			return False;
-		}
+		my Str $resp = $!sock.get() or return False;
+		$resp eq '+PONG' ?? return True !! return False;
 	}
 
-
-	#method !__parse_result( Str $command!, *@params ) {
 	method !__parse_result() {
-		# Response parsing
-		#my $syntax = %redisCommands{ $command };
-
 		my Str $resp;
-		my $data;
-		my $prefix;
-		my @mblist;
-
-		# mbmode: 0 - return single value; 1 - multi-bulk
-		my Int $mbmode = 0;
-		# Default loop count is 1 for getting single value
-		my $cnum = 1;
+		my Str $prefix;
+		my Str $data;
 
 		$resp = $!sock.get() or return False;
+
 		$prefix = substr( $resp, 0, 1 );
 		# second part of response used by all cases
 		$data = substr( $resp, 1, $resp.bytes );
-
-		if $prefix eq '*' {
-			$mbmode = 1;
-			$cnum = $data;
-		}
-
-		# Real loop only for * (multi-bulk), in other cases only once
-		loop (my $i=0; $i < $cnum; $i++) {
-			if $mbmode {
-				# Read next line of reply
-				$resp = $!sock.get() or return False;
-				# ($prefix,$data) = $headtail( $resp );  # C/asm level would be nice :)
-				$prefix = substr( $resp, 0, 1 );
-				$data = substr( $resp, 1, $resp.bytes );
-			}
-			given $prefix {
-				when '-' {
+		if $prefix ne '*' {
+			if $prefix eq '-' {
 					#$!errormsg = $command ~ ": " ~ $data;
 					$!errormsg = $data;
-					$data = False;
+					return False;
+			} elsif $prefix eq '+' || $prefix eq ':' {
+				# returning status and in-transaction commands handling
+				if $data eq 'OK' || $data eq 'QUEUED' {
+					return True;
 				}
-				when '+' {
-					# returning status and in-transaction commands handling
-					#if $syntax[1] == 1 || $data eq 'QUEUED' {
-					if $data eq 'OK' || $data eq 'QUEUED' {
-						$data = True;
-						#next;
+				# Command returning string handling
+				return $data;
+			} elsif $prefix eq '$' {
+				# Bulk commands, format: '$msgLen\r\n'
+				if $data eq '-1'  {
+					return Any;
+				} else {
+					my $len = $data;
+					$data = $!sock.get();
+					while $data.bytes < $len {
+						$data ~= "\r\n" ~ $!sock.get();
 					}
-
-					# Command returning string handling
-					# And already assigned...
-					#$data;
+					return $data;
 				}
-				when ':'  {
-					# Integer commands handling
-					#$data;
-				}
-				when '$' {
-					# Bulk commands, format: '$msgLen\r\n'
-					if $data == -1  {
-						# Nil
-						$data = Any;
-						#next;
+			}
+		} else {
+			# * (multi-bulk) replay parsing
+			my $cnum = $data;
+			my @mb = ();
+			loop (my $i=0; $i < $cnum; $i++) {
+				$resp = $!sock.get() or return False;
+				$prefix = substr( $resp, 0, 1 );
+				$data = substr( $resp, 1, $resp.bytes );
+				if $prefix eq '-' {
+						$!errormsg = $data;
+						push @mb, False;
+						next;
+				} elsif $prefix eq'+' {
+						# returning status and in-transaction commands handling
+						#if $syntax[1] == 1 || $data eq 'QUEUED' {
+						if $data eq 'OK' || $data eq 'QUEUED' {
+							push @mb, True;
+						}
+						# Command returning string handling
+						push @mb, $data;
+						next;
+				} elsif $prefix eq ':'  {
+						push @mb, $data;
+						next;
+				} elsif $prefix eq '$' {
+					# Bulk commands, format: '$len\r\ncontent_of_len_length'
+					if $data eq '-1'  {
+						push @mb, Any;
+						next;
 					} else {
 						my $len = $data;
+	#  Using recv( $x ) discards rest data in socket ?
+						#$data = $!sock.recv( $len + 2 );
 						$data = $!sock.get();
 						while $data.bytes < $len {
 							$data ~= "\r\n" ~ $!sock.get();
 						}
+						push @mb, $data;
+						next;
 					}
-					#$data;
-				}
-				when '*' {
+				} elsif $prefix eq '*' {
 					# here we parse internal multi-bulk, eg. inside transactions
 					# only one lvl of nesting m-b is allowed so just loop - not recursive call
 					my @list = ();
 
 					# -1 indicate Null Multi Bulk
-					if $data == -1 {
-						push @list, False;
-						next;
+					if $data eq '-1' {
+						push @list, Any;
 					} else {
 						my $count = $data;
 						#my Str $p;
 						#my $line;
 						loop (my $m=0; $m < $count; $m++) {
 							my $line = $!sock.get();
-	
 							my Str $p = substr( $line, 0, 1 );
 							my $len = substr( $line, 1, $line.bytes );
 
@@ -392,34 +371,32 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.7> {
 								push @list, $len;
 								next;
 							}
-	
 							# check if that particular bulk is empty
 							if $len == -1 {
 								push @list, Any;
 								next;
 							}
-
 							# else get content
 							my $repl = $!sock.get();
 							while $repl.bytes < $len {
 								$repl ~= "\r\n" ~ $!sock.get();
 							}
 							push @list, $repl;
-						}
-						$data = @list;
+						}  # End internal m-b loop
+						push @mb, @list;
+						#say "ListInList: ", @mb;
 					}
-				}
-				default {
-					# Not reachable
+				} else {
 					$!errormsg = 'Protocol error';
 					return False;
 				}
-			}  # end given
-			push @mblist, $data if $mbmode == 1; 
-		}  # End command parse loop
-		return $data if $mbmode == 0;
-		return @mblist
-	}
+			}
+			#$data = @mb; 
+			return @mb;
+		}  # Main parsing 'if' - not reachable
+		#say "mb: ", @mb;
+		#return @mblist
+	}  # End __parse 
 
 	method sync() {
 		$!errormsg = "Command for use by slave storage only";

@@ -6,7 +6,7 @@ use Simple::Redis;
 plan 32;
 
 my $host = '127.0.0.1';
-my $port = '6379';
+my $port = 6379;
 my $e;
 my @l;
 

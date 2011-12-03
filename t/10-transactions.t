@@ -12,15 +12,15 @@ $r.connect( $host, $port );
 
 $r.mset( 'a', 1, 'b', 2, 'c', 3, 'd', 4 );
 $e = $r.watch( 'a', 'b', 'c' );
-is $e, 'Bool::True', '1 ok';
+is $e, Bool::True, '1 ok';
 
 $e = $r.unwatch();
-is $e, 'Bool::True', '2 ok';
+is $e, Bool::True, '2 ok';
 
 $e = $r.multi();
-is $e, 'Bool::True', '3 ok';
+is $e, Bool::True, '3 ok';
 $e = $r.discard();
-is $e, 'Bool::True', '4 ok';
+is $e, Bool::True, '4 ok';
 
 $r.multi();
 # commands in multi are queued and return '+QUEUED',
@@ -51,7 +51,7 @@ is @l, ["0", ["3", "3", "4"], "3"], "12 ok";
 $r.multi();
 $r.hset( 'h', 'a', 'h1' );
 $e = $r.discard();
-is $e, 'Bool::True', '13 ok';
+is $e, Bool::True, '13 ok';
 
 done;
 

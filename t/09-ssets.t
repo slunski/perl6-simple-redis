@@ -3,7 +3,7 @@ use Test;
 
 use Simple::Redis;
 my $host = '127.0.0.1';
-my $port = '6379';
+my $port = 6379;
 my $r = Simple::Redis.new;
 $r.connect( $host, $port );
 
