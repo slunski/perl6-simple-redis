@@ -2,18 +2,17 @@ use v6;
 
 class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 
-	# BEGIN {
-
-
 	has $!sock; # is rw;
 	has $!errormsg = Any; # is rw;
 	has Str $!infomsg = ''; # is rw;
 	# SIMPLE - blocking, create command string, send, receive and parse, just work
-	# PIPE - collect commands strings, send all, then read replies
-	our enum Mode <SIMPLE PIPELINE SUBPUB>;
+	# PIPELINE - collect commands strings, send all, then read replies
+	our enum Mode <SIMPLE PIPELINE PUBSUB>;
 	has Int $!mode = SIMPLE; # is rw;
 	has Int $!pipedCount = 0; # is rw;
 	has Str $!pool = ''; # is rw;
+
+	BEGIN {
 
 	# Syntax:
 	# 'commandName' => (paramsNum, responseType)
@@ -141,11 +140,11 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 			Simple::Redis.HOW.add_method(
 				Simple::Redis, $n, method ( *@rest ) {
 					my Str $cmd = "$n\r\n";
-					if $!mode eq 'SIMPLE' {
+					if $!mode == SIMPLE {
 						$!sock.send( $cmd ) or return False;
 						self!__parse_result();
 					} else {
-						# mode P(IPE)
+						# mode PIPELINE
 						$!pool ~= $cmd;
 						$!pipedCount++;
 					}
@@ -177,7 +176,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 							$cmd ~= "\$" ~ $p.bytes ~ "\r\n$p\r\n";
 						}
 					}
-					if $!mode eq 'SIMPLE' {
+					if $!mode == SIMPLE {
 						$!sock.send( $cmd ) or return False;
 						self!__parse_result();
 					} else {
@@ -190,7 +189,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		}
 	}
 
-	#} # BEGIN end
+	} # BEGIN end
 
 	method sendCommands() {
 		$!sock.send( $!pool ) or return False;
@@ -202,6 +201,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		my @rs;
 		my $a;
 
+		#loop ( my Int $i = $!pipedCount; $i > 0; $i--) {
 		loop ( my int $i = $!pipedCount; $i > 0; $i=$i-1) {
 			$a = self!__parse_result();
 			push @rs, $a;
@@ -209,7 +209,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		return @rs;
 	}
 
-	method setMode( Int $m ) { $!mode = $m; }  # some tests needed before assign
+	method setMode( Int $m ) { $!mode = $m; }  # some tests needed before assign!
 
 	method connect( $host, $port ) {
 		$!sock = IO::Socket::INET.new( :$host, :$port );
@@ -264,7 +264,9 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		$!sock.send( "$4\r\nping\r\n" ) or return False;
 
 		my Str $resp = $!sock.get() or return False;
-		$resp eq '+PONG' ?? return True !! return False;
+		#$resp eq '+PONG' ?? return True !! return False;
+		return True if $resp eq '+PONG';
+		return False;
 	}
 
 	method !__parse_result() {
@@ -282,12 +284,14 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 					#$!errormsg = $command ~ ": " ~ $data;
 					$!errormsg = $data;
 					return False;
-			} elsif $prefix eq '+' || $prefix eq ':' {
+			} elsif $prefix eq '+' {
 				# returning status and in-transaction commands handling
 				if $data eq 'OK' || $data eq 'QUEUED' {
 					return True;
 				}
 				# Command returning string or integer handling
+				return $data;
+			} elsif $prefix eq ':' {
 				return $data;
 			} elsif $prefix eq '$' {
 				if $data eq '-1'  {
@@ -306,7 +310,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 			# * (multi-bulk) replay parsing
 			my $cnum = $data;
 			my @mb = ();
-			loop (my $i=0; $i < $cnum; $i++) {
+			loop (my Int $i=0; $i < $cnum; $i++) {
 				$resp = $!sock.get() or return False;
 				$prefix = substr( $resp, 0, 1 );
 				$data = substr( $resp, 1, $resp.bytes );
@@ -333,8 +337,6 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 						next;
 					} else {
 						my $len = $data;
-	#  Using recv( $x ) discards rest data in socket ?
-						#$data = $!sock.recv( $len + 2 );
 						$data = $!sock.get();
 						while $data.bytes < $len {
 							$data ~= "\r\n" ~ $!sock.get();
@@ -345,52 +347,47 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 				} elsif $prefix eq '*' {
 					# here we parse internal multi-bulk, eg. inside transactions
 					# only one lvl of nesting m-b is allowed so just loop - not recursive call
-					my @list = ();
 
-					# -1 indicate Null Multi Bulk
 					if $data eq '-1' {
-						push @list, Any;
+						# -1 indicate Null Multi Bulk
+						push @mb, Any;
 					} else {
+						my @list = ();
 						my $count = $data;
-						#my Str $p;
-						#my $line;
-						loop (my $m=0; $m < $count; $m++) {
-							my $line = $!sock.get();
+						loop (my Int $m=0; $m < $count; $m++) {
+							my Str $line = $!sock.get();
 							my Str $p = substr( $line, 0, 1 );
 							my $len = substr( $line, 1, $line.bytes );
 
 							# check if bulk starts with '+' or ':' - one-line response,
-							# '-' too ?
+							# Can '-' be found in m.b. ?
 							if $p eq '+' || $p eq ':' {
-								# in this case $len(gth) is value...
+								# in this case $len(gth) is value
 								push @list, $len;
 								next;
-							}
-							# check if that particular bulk is empty
-							if $len == -1 {
-								push @list, Any;
+							} else {
+								# check if that particular bulk is empty
+								if $len == -1 {
+									push @list, Any;
+									next;
+								}
+								my Str $r = $!sock.get();
+								while $r.bytes < $len {
+									$r ~= "\r\n" ~ $!sock.get();
+								}
+								push @list, $r;
 								next;
 							}
-							# else get content
-							my $repl = $!sock.get();
-							while $repl.bytes < $len {
-								$repl ~= "\r\n" ~ $!sock.get();
-							}
-							push @list, $repl;
 						}  # End internal m-b loop
 						push @mb, @list;
-						#say "ListInList: ", @mb;
 					}
 				} else {
 					$!errormsg = 'Protocol error';
 					return False;
 				}
 			}
-			#$data = @mb; 
 			return @mb;
-		}  # Main parsing 'if' - not reachable
-		#say "mb: ", @mb;
-		#return @mblist
+		}  # Main parsing 'if'
 	}  # End __parse 
 
 	method sync() {
