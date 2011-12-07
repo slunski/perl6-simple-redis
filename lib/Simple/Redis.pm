@@ -1,19 +1,9 @@
-#module Simple::Redis {
-
 use v6;
 
-class Simple::Redis:auth<github:slunski>:ver<0.4.7> {
+class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 
 	# BEGIN {
 
-	# Syntax:
-	# 'commandName' => (paramsNum, responseType)
-	# paramsNum: -1: vararg; rest: num of params
-	# responseType: 1: status only; 2: Int; 3: Str; 4: Bulk; 5: Multi-Bulk
-	# Comment: responseType is nearly not used. Case (x,1) used for faster method return.
-	# 	Response parsing is done in 'protocol way' by 1st character checking.
-	#	Static table return code checking breaks eg. on transactions, where '+QUEUED' is
-	#	returned for all commands in transaction body.
 
 	has $!sock; # is rw;
 	has $!errormsg = Any; # is rw;
@@ -25,9 +15,17 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.7> {
 	has Int $!pipedCount = 0; # is rw;
 	has Str $!pool = ''; # is rw;
 
+	# Syntax:
+	# 'commandName' => (paramsNum, responseType)
+	# paramsNum: -1: vararg; rest: num of params
+	# responseType: 1: status only; 2: Int; 3: Str; 4: Bulk; 5: Multi-Bulk
+	# Comment: responseType is nearly not used. Case (x,1) used for faster method return.
+	# 	Response parsing is done in 'protocol way' by 1st character checking.
+	#	Static table return code checking breaks eg. on transactions, where '+QUEUED' is
+	#	returned for all commands in transaction body.
+
 	# const it should be...
-	#our %redisCommands = { 
-	#has %!redisCommands = {
+	#constant %redisCommands = {  # NYI
 	my %redisCommands = { 
 		'BGREWRITEAOF' => (0,1),
 		'BGSAVE' => (0,1),
@@ -137,7 +135,6 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.7> {
 		'ZUNIONSTORE' => (-1,2) # Should be implemented as separate command
 	}
 
-	#for %!redisCommands.keys -> $name {
 	for %redisCommands.kv -> $name, $val {
 		my Str $n = lc $name;
 		if $val[0] == 0 {
@@ -163,7 +160,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.7> {
 						$!errormsg = 'Bad parameters count';
 						return False;
 					}
-					# Commands are send in multi-bulk format
+					# Commands are usually send in multi-bulk format
 					my $clen = $n.bytes;
 					my $plen;  my $p;
 					if @rest.elems == 1 {
@@ -206,9 +203,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.7> {
 		my $a;
 
 		loop ( my int $i = $!pipedCount; $i > 0; $i=$i-1) {
-		#loop ( my Int $i = 10000; $i > 0; $i--) {
 			$a = self!__parse_result();
-			#say "ERROR!" if $a ne 'PONG';
 			push @rs, $a;
 		}
 		return @rs;
@@ -292,11 +287,11 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.7> {
 				if $data eq 'OK' || $data eq 'QUEUED' {
 					return True;
 				}
-				# Command returning string handling
+				# Command returning string or integer handling
 				return $data;
 			} elsif $prefix eq '$' {
-				# Bulk commands, format: '$msgLen\r\n'
 				if $data eq '-1'  {
+					# protocol definition advise to return undefined value here
 					return Any;
 				} else {
 					my $len = $data;
@@ -419,4 +414,3 @@ under the same terms as Perl itself.
 
 =end pod
 
-#}

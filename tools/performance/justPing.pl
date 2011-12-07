@@ -9,19 +9,16 @@ sub justping() {
 	print 'Just ping:.............';
 
 	my $start = now;
-
 	my $r = Simple::Redis.new;
 	$r.connect( $host, $port );
 
 	for ^10000 { $r.justping() }
 
 	$r.quit();
-
 	my $end = now;
 
 	say $end - $start;
 }
 
 justping();
-
 

@@ -45,7 +45,7 @@ is $re, Bool::True, '6 ok';
 
 # Check if realy empty db
 $re = $redis.get( "t1" );
-is $re, Any, '7 ok';
+ok(!$re.defined, '7 ok');
 
 
 # Flush all DBs
@@ -58,10 +58,10 @@ is $re, Bool::True, '8 ok';
 
 $redis.select( 0 );
 $re = $redis.get( "db0" );
-is $re, Any, '9 ok';
+ok(!$re.defined, '9 ok');
 $redis.select( 1 );
 $re = $redis.get( "db1" );
-is $re, Any, '10 ok';
+ok(!$re.defined, '10 ok');
 
 
 # Other tests

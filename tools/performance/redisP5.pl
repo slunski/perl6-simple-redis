@@ -23,7 +23,7 @@ sub p1 {
 # Redis::hiredis use C bindings wroted by Redis author
 use Redis::hiredis;
 sub p2 {
-	print "Redis::hiredis pipelined:  ";
+	print "Redis::hiredis sequential:  ";
 	my $redis = Redis::hiredis->new();
 
 	$s = Time::HiRes::time;
@@ -42,7 +42,7 @@ sub p3 {
 	$redis->connect('127.0.0.1', 6379);
 	for( 1..10000 ) { $redis->append_command('ping') };
 	$m = Time::HiRes::time;
-	print "  ", $m - $s, "  just concatenat commands\n";
+	print "  ", $m - $s, "  just concatenate commands\n";
 	for( 1..10000 ) { $set_status = $redis->get_reply() };
 
 	$e = Time::HiRes::time;

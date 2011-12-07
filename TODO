@@ -4,18 +4,17 @@ Dev work:
  - configuration management
  - debugging
 * Testing
-* Profiling on stable Perl6 implementation :)
+* Profiling on stable Perl6 implementation. Little (easy part) already done :)
 
 LHF:
 * lc command names in command hash
-* Few commands use old syntax disallowing variable params;
+* Few commands use old syntax disallowing variable param number;
   Migration to v2.4 syntax needed
 * Test AUTH command
 
 Other:
 * Extract commands which needs special threatment ?
-* Split command sending and reply parsing ?
-* Non-blocking API ? Pipelining ?
+* Non-blocking API ?
 * Documentation
 * Examples
 

@@ -40,7 +40,7 @@ is $re, "abc def", '7 ok';
 $redis.flushdb();
 
 $re = $redis.get( "t1" );
-is $re, Any, '8 ok';
+ok(!$re.defined, '8 ok');
 
 $re = $redis.set( 3, "c" );
 is $re, Bool::True, '9 ok';
