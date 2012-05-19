@@ -5,12 +5,15 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 	has $!sock; # is rw;
 	has $!errormsg = Any; # is rw;
 	has Str $!infomsg = ''; # is rw;
-	# SIMPLE - blocking, create command string, send, receive and parse, just work
-	# PIPELINE - collect commands strings, send all, read replies
-	our enum Mode <SIMPLE PIPELINE PUBSUB>;
-	has Int $!mode = SIMPLE; # is rw;
 	has Int $!pipedCount = 0; # is rw;
 	has Str $!pool = ''; # is rw;
+
+	# SIMPLE - blocking, create command string, send, receive and parse, just work
+	# PIPELINE - collect commands strings, send all, read replies
+	# PUBSUB - NYI
+	our enum Mode <SIMPLE PIPELINE PUBSUB>;
+
+	has Int $!mode = SIMPLE; # is rw;
 
 	BEGIN {
 		# Methods for commands are created automatically
@@ -25,8 +28,8 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 	#	returned for all commands in transaction body.
 
 	# const it should be...
-	#constant %redisCommands = {  # NYI
-	my %redisCommands = { 
+	#my %redisCommands = { 
+	constant %redisCommands = {
 		'BGREWRITEAOF' => (0,1),
 		'BGSAVE' => (0,1),
 		'FLUSHALL' => (0,1),
@@ -199,17 +202,16 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 	#	return True;
 	#}
 
-	method getResponses() {
-		my @rs;
-		my $a;
-
-		#loop ( my Int $i = $!pipedCount; $i > 0; $i--) {
-		loop ( my int $i = $!pipedCount; $i > 0; $i=$i-1) {
-			$a = self!__parse_result();
-			push @rs, $a;
-		}
-		return @rs;
-	}
+	#method getResponses() {
+	#	my @rs;
+	#	my $a;
+	#
+	#	loop ( my Int $i = $!pipedCount; $i > 0; $i--) {
+	#		$a = self!__parse_result();
+	#		push @rs, $a;
+	#	}
+	#	return @rs;
+	#}
 
 	method setMode( Int $m ) { $!mode = $m; }  # some tests needed before assign!
 
@@ -258,9 +260,11 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		$!sock.send( $cmd ) or return False;
 		
 		my Str $resp = $!sock.get() or return False;
-		#my $len = substr( $resp, 1, $resp.bytes );
-		#$resp = $!sock.recv( $len.Int );
-		$resp = $!sock.get() or return False;
+		my $len = substr( $resp, 1, $resp.bytes );
+
+	# Experimental 'recv' use :)
+		$resp = $!sock.recv( $len.Int );
+		#$resp = $!sock.get() or return False;
 		return $resp;
 	}
 
@@ -277,10 +281,9 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		my Str $data;
 
 		$resp = $!sock.get() or return False;
-
 		$prefix = substr( $resp, 0, 1 );
-		# second part of response used by all cases
 		$data = substr( $resp, 1, $resp.bytes );
+
 		if $prefix ne '*' {
 			if $prefix eq '-' {
 					#$!errormsg = $command ~ ": " ~ $data;
@@ -296,6 +299,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 			} elsif $prefix eq ':' {
 				return $data;
 			} elsif $prefix eq '$' {
+				# Bulk handling
 				if $data eq '-1'  {
 					# protocol definition advise to return undefined value here
 					return Any;
