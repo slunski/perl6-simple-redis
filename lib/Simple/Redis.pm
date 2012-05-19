@@ -60,8 +60,8 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		'GETBIT' => (2,2),
 		'GETRANGE' => (3,4),
 		'GETSET' => (2,4), # FIXIT + test
-		#'HDEL' => (-1,2), # in ver. 2.4+
-		'HDEL' => (2,2),
+		#'HDEL' => (2,2),
+		'HDEL' => (-1,2), # in ver. 2.4+
 		'HEXISTS' => (2,2),
 		'HGET' => (2,4),
 		'HGETALL' => (1,5),
