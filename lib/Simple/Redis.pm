@@ -6,13 +6,14 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 	has $!errormsg = Any; # is rw;
 	has Str $!infomsg = ''; # is rw;
 	# SIMPLE - blocking, create command string, send, receive and parse, just work
-	# PIPELINE - collect commands strings, send all, then read replies
+	# PIPELINE - collect commands strings, send all, read replies
 	our enum Mode <SIMPLE PIPELINE PUBSUB>;
 	has Int $!mode = SIMPLE; # is rw;
 	has Int $!pipedCount = 0; # is rw;
 	has Str $!pool = ''; # is rw;
 
 	BEGIN {
+		# Methods for commands are created automatically
 
 	# Syntax:
 	# 'commandName' => (paramsNum, responseType)
@@ -30,7 +31,6 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		'BGSAVE' => (0,1),
 		'FLUSHALL' => (0,1),
 		'FLUSHDB' => (0,1),
-		#'PING' => (0,1),
 		'SAVE' => (0,1),
 		'DISCARD' => (0,1),
 		'EXEC' => (0,5),
@@ -137,6 +137,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 	for %redisCommands.kv -> $name, $val {
 		my Str $n = lc $name;
 		if $val[0] == 0 {
+			# For commands using "inline" protocol
 			Simple::Redis.HOW.add_method(
 				Simple::Redis, $n, method ( *@rest ) {
 					my Str $cmd = "$n\r\n";
@@ -144,7 +145,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 						$!sock.send( $cmd ) or return False;
 						self!__parse_result();
 					} else {
-						# mode PIPELINE
+						# PIPELINE mode 
 						$!pool ~= $cmd;
 						$!pipedCount++;
 					}
@@ -155,6 +156,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 				Simple::Redis, $n, method ( *@rest ) {
 					my Str $cmd;
 					my Int $m = @rest.elems;
+					# Check params count vs command "definition"
 					if $val[0] != $m && $val[0] != -1 {
 						$!errormsg = 'Bad parameters count';
 						return False;
@@ -162,8 +164,8 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 					# Commands are usually send in multi-bulk format
 					my $clen = $n.bytes;
 					my $plen;  my $p;
-					if @rest.elems == 1 {
-					$cmd = "*2\r\n\$$clen\r\n$n\r\n";
+					if $m == 1 {
+						$cmd = "*2\r\n\$$clen\r\n$n\r\n";
 						$p = shift @rest;
 						$plen = $p.bytes;
 						$cmd ~= "\$$plen\r\n$p\r\n";
@@ -172,8 +174,8 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 						$m++;
 						$cmd = "*$m\r\n\$$clen\r\n$n\r\n";
 						for @rest -> $p {
-						#$plen = $p.bytes;
-							$cmd ~= "\$" ~ $p.bytes ~ "\r\n$p\r\n";
+							$plen = $p.bytes;
+							$cmd ~= "\$" ~ $plen ~ "\r\n$p\r\n";
 						}
 					}
 					if $!mode == SIMPLE {
@@ -191,11 +193,11 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 
 	} # BEGIN end
 
-	method sendCommands() {
-		$!sock.send( $!pool ) or return False;
-		$!pool = '';
-		return True;
-	}
+	#method sendCommands() {
+	#	$!sock.send( $!pool ) or return False;
+	#	$!pool = '';
+	#	return True;
+	#}
 
 	method getResponses() {
 		my @rs;
@@ -214,6 +216,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 	method connect( $host, $port ) {
 		$!sock = IO::Socket::INET.new( :$host, :$port );
 		return False unless $!sock.defined;
+		# autochop remove "\n" only, Redis use this
 		$!sock.input-line-separator = "\r\n";
 		return True
 	}
@@ -403,7 +406,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright (C) 2011 Sylwester Łuński. All rights reserved
+Copyright (C) 2012 Sylwester Łuński. All rights reserved
 
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
