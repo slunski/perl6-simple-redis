@@ -1,10 +1,9 @@
 use v6;
 
-class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
+class Simple::Redis:auth<github:slunski>:ver<0.4.9> {
 
-	has $!sock; # is rw;
-	has $!errormsg = Any; # is rw;
-	has Str $!infomsg = ''; # is rw;
+	has $.sock is rw;
+	has $.errormsg = Any; # is rw;
 	has Int $!pipedCount = 0; # is rw;
 	has Str $!pool = ''; # is rw;
 
@@ -30,18 +29,18 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 	# const it should be...
 	#my %redisCommands = { 
 	constant %redisCommands = {
-		'BGREWRITEAOF' => (0,1),
-		'BGSAVE' => (0,1),
+		#'BGREWRITEAOF' => (0,1),
+		#'BGSAVE' => (0,1),
 		'FLUSHALL' => (0,1),
 		'FLUSHDB' => (0,1),
-		'SAVE' => (0,1),
+		#'SAVE' => (0,1),
 		'DISCARD' => (0,1),
 		'EXEC' => (0,5),
 		'MULTI' => (0,1),
 		'UNWATCH' => (0,1),
 		'WATCH' => (-1,1),
 		'DBSIZE' => (0,2),
-		'LASTSAVE' => (0,2),
+		#'LASTSAVE' => (0,2),
 		'GET' => (1,4),
 		'AUTH' => (1,1), # FIXIT + test
 		'SELECT' => (1,1),
@@ -109,8 +108,8 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		'SINTER' => (-1,5),
 		'SINTERSTORE' => (-1,2),
 		'SISMEMBER' => (2,1),
-		'SLEVEOF' => (-1,5),  # Should be implemented as separate command
-		'SLOWLOG' => (2,1),
+		#'SLEVEOF' => (-1,5),  # Should be implemented as separate command
+		#'SLOWLOG' => (2,1),
 		'SMEMBERS' => (1,5),
 		'SMOVE' => (3,2),
 		'SORT' => (-1,5), # Should be implemented as separate command
@@ -119,6 +118,7 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		'SREM' => (-1,2),
 		'SUNION' => (-1,5),
 		'SUNIONSTORE' => (-1,2),
+		'TIME' => (0,5),
 		'ZADD' => (-1,2),
 		'ZCARD' => (1,2),
 		'ZCOUNT' => (3,2),
@@ -231,16 +231,16 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		return False;
 	}
 
-	method info {
-		$!sock.send( "INFO\r\n" ) or return False;
-		my Str $info;
-		my Str $l;
-		# Or use .recv and get everything in one call
-		while $l = $!sock.get() {
-			$info ~= $l ~ "\n";
-		}
-		return $info;
-	}
+	#method info {
+	#	$!sock.send( "INFO\r\n" ) or return False;
+	#	my Str $info;
+	#	my Str $l;
+	#	# Or use .recv and get everything in one call
+	#	while $l = $!sock.get() {
+	#		$info ~= $l ~ "\n";
+	#	}
+	#	return $info;
+	#}
 
 	method errormsg() {
 		return $!errormsg;
@@ -396,14 +396,13 @@ class Simple::Redis:auth<github:slunski>:ver<0.4.8> {
 		}  # Main parsing 'if'
 	}  # End __parse 
 
-	method sync() {
-		$!errormsg = "Command for use by slave storage only";
-		return False;
-
-		#$!sock.send( "SYNC\r\n" ) or return False;
-		## Flush socket
-		#$!sock.get(); $!sock.get(); return True;
-	}
+	#method sync() {
+	#	$!errormsg = "Command for use by slave storage only";
+	#	return False;
+	#	#$!sock.send( "SYNC\r\n" ) or return False;
+	#	## Flush socket
+	#	#$!sock.get(); $!sock.get(); return True;
+	#}
 }
 
 =begin pod

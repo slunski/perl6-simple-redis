@@ -3,7 +3,7 @@ use Test;
 
 use Simple::Redis;
 
-plan 11;
+plan 10;
 
 my $host = '127.0.0.1';
 my $port = 6379;
@@ -16,8 +16,7 @@ $re = $redis.connect( $host, $port );
 
 $redis.flushdb();
 
-$re = $redis.info();
-ok( $re ~~ /\w+/, '1 ok');
+#info test here: ok( $re ~~ /\w+/, '1 ok');
 
 $re = $redis.set( "t1", "abc" );
 is $re, Bool::True, '2 ok';

@@ -84,7 +84,6 @@ $r.zadd( "ss", 5, "e" );
 $r.zadd( "ss", 6, "f" );
 $r.zadd( "ss", 7, "g" );
 @l = $r.zrevrangebyscore( "ss", 3, 1 );
-say @l;
 is @l[0], 'c', '16 ok';
 is @l[1], 'b', '17 ok';
 is @l[2], 'a', '18 ok';

@@ -1,10 +1,9 @@
 Dev work:
 * Write commands for:
+ - write missing configuration commands
  - pub/sub
- - configuration management
- - debugging
 * Testing
-* Profiling on stable Perl6 implementation. Little (easy part) already done :)
+* Profiling on stable Perl6 implementation
 
 LHF:
 * lc command names in command hash
