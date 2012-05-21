@@ -3,6 +3,6 @@
     "version" : "*",
     "description" : "Pure Perl6 bindings for Redis data store",
     "depends" : [],
-    "source-url" : "https://github.com/slunski/perl6-simple-redis.git"
+    "source-url" : "git://github.com/slunski/perl6-simple-redis.git"
 }
 

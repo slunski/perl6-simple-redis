@@ -3,6 +3,19 @@ use Simple::Redis;
 
 class Simple::Redis::Admin is Simple::Redis {
 
+method !sendrecv( Str $cmd ) {
+	$.sock.send( $cmd ) or return False;
+
+	# Using this from S::R will do everything we want...
+	#self!__parse_result();
+	
+	# but P6 object system do not allow us, so we use this...
+	# still, it is advanced content so let admins worry...
+	my $re = $.sock.recv();
+
+	return $re;
+}
+
 method bgrewriteaof {
 	my Str $cmd = "bgrewriteaof\r\n";
 	$.sock.send( $cmd ) or return False;
@@ -17,11 +30,44 @@ method bgsave {
 	return True if $resp eq '+Background saving started';
 	return False;
 }
-method config {
+method config( Str $sbc, *@param) {
 # Forms: GET RESETSTAT SET 
+	my Str $cmd = "config ";
+	if $sbc eq 'restart' {
+		$cmd ~= 'restart\r\n';
+	} elsif $sbc eq 'get' {
+		$cmd ~= "get @param[0]\r\n";
+	} elsif $sbc eq 'set' {
+		$cmd ~= 'set ';
+		$cmd ~= @param.join( ' ' );
+		$cmd ~= "\r\n";
+	} else {
+		return False;
+	}
+	return self!sendrecv( $cmd );
 }
-method debug {
-# Forms: object segfault 
+method object {
+# Forms: REFCOUNT ENCODING IDLETIME
+
+}
+method debug( Str $sbc, Str $param? ) {
+	my $cmd = "debug ";
+	if $sbc eq 'segfault' {
+		# FIX: commented for dev
+		#$cmd ~= "segfault\r\n";
+
+		my $cmd = "echo debug segfault\r\n";
+
+	} elsif $sbc eq 'object' {
+		say 'oo';
+		$cmd ~= "object $param\r\n";
+	} else {
+		return False;
+	}
+	$.sock.send( $cmd ) or return False;
+	my Str $resp = $.sock.get();
+	return $resp;
+
 }
 method info {
 	$.sock.send( "info\r\n" ) or return False;

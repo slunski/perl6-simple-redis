@@ -1,0 +1,8 @@
+Redis use simple client-server protocol - request/response is just set
+of text lines (UTF-8 aware) finsihed with "\r\n". This make Redis
+lightweight and efective as cache for sessions, memoization, etc - and
+that all with data persistence (on disk) build in. Becouse of such protocol
+real work is done in 'server' part so using Redis on busy WWW frontends
+is Good Thing - both for frontends and DB backends (assuming load is what
+DB backends like).
+

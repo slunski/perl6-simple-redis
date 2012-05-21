@@ -1,9 +1,10 @@
 Dev work:
 * Write commands for:
- - write missing configuration commands
+ - remote administration (few is missing)
  - pub/sub
+ - scripting
 * Testing
-* Profiling on stable Perl6 implementation
+* Profiling on more Perl6 implementations
 
 LHF:
 * lc command names in command hash
@@ -12,8 +13,8 @@ LHF:
 * Test AUTH command
 
 Other:
-* Extract commands which needs special threatment ?
-* Non-blocking API ?
+* Extract commands which needs special threatment (?)
+* Non-blocking API (?) S::R::PubSub should use it
 * Documentation
 * Examples
 
